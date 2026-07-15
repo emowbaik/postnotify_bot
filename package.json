@@ -1,0 +1,18 @@
+{
+  "name": "postnotify-bot",
+  "version": "1.0.0",
+  "description": "Discord bot that sends notifications when TikTok streamers go live, powered by GitHub Actions",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/app.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "tiktok-live-connector": "^2.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}
