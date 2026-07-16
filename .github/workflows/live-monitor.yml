@@ -20,6 +20,7 @@ jobs:
 
     permissions:
       contents: write   # needed to commit state.json back to the repo
+      actions: write    # needed to delete old workflow runs
 
     env:
       DISCORD_BOT_TOKEN:  ${{ secrets.DISCORD_BOT_TOKEN }}
@@ -64,7 +65,25 @@ jobs:
             echo "No state changes to commit."
           fi
 
-      # ── 6. Sleep 60 seconds before triggering next loop ──────────────────
+      # ── 6. Delete old workflow runs (keep only the latest) ───────────────
+      # Keeps the Actions tab clean — same pattern as Auto-checkin-iamhc.
+      - name: Clear old workflow runs
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          runs=$(gh run list --workflow="${{ github.workflow }}" --limit=100 --json databaseId --jq '.[].databaseId')
+          count=0
+          for run_id in $runs; do
+            count=$((count + 1))
+            if [ $count -gt 1 ]; then
+              echo "Deleting old run: $run_id"
+              gh run delete $run_id || true
+            fi
+          done
+          echo "✅ Cleanup done — only latest run kept."
+
+      # ── 7. Sleep 60 seconds before triggering next loop ──────────────────
       # This creates an approximately 1-minute polling interval.
       # The loop check occupies the first ~30s; sleep fills the rest.
       - name: Wait before next check
