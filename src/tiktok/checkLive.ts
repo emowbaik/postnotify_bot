@@ -1,19 +1,22 @@
 /**
  * TikTok live status checker.
  *
- * Uses `tiktok-live-connector` v2's HTTP-only API:
- *   - `fetchIsLive()` — lightweight boolean check (no WebSocket)
- *   - `fetchRoomInfo()` — fetch stream details (title, viewers, thumbnail)
+ * Uses `tiktok-live-connector` v2's `connect()` method which internally:
+ *   1. Resolves the roomId
+ *   2. Fetches full room info (title, cover, viewers, owner avatar, etc.)
+ *   3. Opens WebSocket for live events
  *
- * This approach avoids maintaining a persistent WebSocket connection, making
- * it ideal for the GitHub Actions polling model.
+ * We immediately `disconnect()` after connect resolves — we only need
+ * the room data snapshot, not the live event stream.
  *
- * Error handling: Any error (user offline, rate-limit, network) is treated as
- * "not live" to avoid false positive notifications.
+ * `fetchRoomInfo()` alone only returns a minimal API wrapper (data.prompts),
+ * NOT the full room data. That's why we must use connect().
  */
 
 import { TikTokLiveConnection } from 'tiktok-live-connector';
 import type { LiveCheckResult } from '../types.js';
+
+const CONNECT_TIMEOUT_MS = 15_000;
 
 /**
  * Check whether a TikTok user is currently live.
@@ -21,44 +24,43 @@ import type { LiveCheckResult } from '../types.js';
  */
 export async function checkIsLive(username: string): Promise<LiveCheckResult> {
   const liveUrl = `https://www.tiktok.com/@${username}/live`;
-  const connection = new TikTokLiveConnection(username, {});
+  const connection = new TikTokLiveConnection(username, {
+    enableExtendedGiftInfo: false,
+  });
 
   try {
-    // Step 1: Lightweight boolean check (pure HTTP, no WebSocket)
-    const isLive = await connection.fetchIsLive();
+    // Connect with timeout — this fetches full room data internally
+    const state = await Promise.race([
+      connection.connect(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Connect timeout')), CONNECT_TIMEOUT_MS)
+      ),
+    ]);
 
-    if (!isLive) {
-      console.log(`[${username}] 💤 Not live.`);
-      return { isLive: false, username };
-    }
+    // Immediately disconnect — we only needed the room data snapshot
+    try { await connection.disconnect(); } catch { /* ignore */ }
 
-    // Step 2: Get the roomId first — required before fetching room info
-    const roomId = await connection.fetchRoomId();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const roomInfo = (state as any)?.roomInfo ?? connection.roomInfo ?? {};
+
+    // Debug: log keys to trace data structure
+    const keys = Object.keys(roomInfo);
+    console.log(`[${username}] roomInfo keys: ${keys.join(', ')}`);
+
+    const roomId = String(connection.roomId ?? roomInfo['id'] ?? roomInfo['room_id'] ?? '');
 
     if (!roomId) {
-      console.warn(`[${username}] ⚠️  Live but roomId unavailable — skipping.`);
+      console.warn(`[${username}] ⚠️  Connected but no roomId — skipping.`);
       return { isLive: false, username };
-    }
-
-    // Step 3: Fetch room details using the resolved roomId
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const roomInfo = (await connection.fetchRoomInfo(roomId)) as Record<string, any>;
-
-    // Debug: log top-level keys and nested data keys to find viewer count path
-    console.log(`[${username}] roomInfo keys: ${Object.keys(roomInfo).join(', ')}`);
-    if (roomInfo['data']) {
-      console.log(`[${username}] roomInfo.data keys: ${Object.keys(roomInfo['data']).join(', ')}`);
     }
 
     const thumbnailUrl = extractThumbnail(roomInfo);
     const profilePicUrl = extractProfilePic(roomInfo);
     const startedAt = extractStartTime(roomInfo);
     const viewerCount = extractViewerCount(roomInfo);
-    const title = String(
-      roomInfo['title'] ?? roomInfo['data']?.['title'] ?? username
-    );
+    const title = String(roomInfo['title'] ?? username);
 
-    console.log(`[${username}] ✅ Is LIVE — roomId: ${roomId}, viewers: ${viewerCount}, title: ${title}`);
+    console.log(`[${username}] ✅ LIVE — room: ${roomId}, viewers: ${viewerCount}, title: ${title}`);
 
     return {
       isLive: true,
@@ -75,17 +77,21 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
     const message = error instanceof Error ? error.message : String(error);
     const lower = message.toLowerCase();
 
+    // Gracefully disconnect on error
+    try { await connection.disconnect(); } catch { /* ignore */ }
+
     const isExpectedOffline =
       lower.includes('not live') ||
       lower.includes('offline') ||
       lower.includes('ended') ||
       lower.includes('user is not live') ||
-      lower.includes('useroflline');  // typo present in some library versions
+      lower.includes('useroflline') ||
+      lower.includes('connect timeout');
 
     if (isExpectedOffline) {
-      console.log(`[${username}] 💤 Not live (confirmed offline).`);
+      console.log(`[${username}] 💤 Not live.`);
     } else {
-      console.warn(`[${username}] ⚠️  Error checking live status: ${message}`);
+      console.warn(`[${username}] ⚠️  Error: ${message}`);
     }
 
     return { isLive: false, username };
@@ -96,14 +102,11 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractViewerCount(roomInfo: Record<string, any>): number {
-  // Try multiple known paths where TikTok stores viewer count
   const candidates = [
     roomInfo['user_count'],
-    roomInfo['data']?.['user_count'],
     roomInfo['stats']?.['total_user'],
+    roomInfo['data']?.['user_count'],
     roomInfo['data']?.['stats']?.['total_user'],
-    roomInfo['like_count'],
-    roomInfo['data']?.['like_count'],
   ];
   for (const val of candidates) {
     const num = Number(val);
@@ -114,7 +117,6 @@ function extractViewerCount(roomInfo: Record<string, any>): number {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractThumbnail(roomInfo: Record<string, any>): string | null {
-  // Search multiple nested paths
   const sources = [
     roomInfo['cover']?.['url_list'],
     roomInfo['data']?.['cover']?.['url_list'],
@@ -133,8 +135,8 @@ function extractThumbnail(roomInfo: Record<string, any>): string | null {
 function extractProfilePic(roomInfo: Record<string, any>): string | null {
   const sources = [
     roomInfo['owner']?.['avatar_thumb']?.['url_list'],
-    roomInfo['data']?.['owner']?.['avatar_thumb']?.['url_list'],
     roomInfo['owner']?.['avatar_medium']?.['url_list'],
+    roomInfo['data']?.['owner']?.['avatar_thumb']?.['url_list'],
     roomInfo['data']?.['owner']?.['avatar_medium']?.['url_list'],
   ];
   for (const urlList of sources) {
