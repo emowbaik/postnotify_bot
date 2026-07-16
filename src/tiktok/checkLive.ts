@@ -44,14 +44,20 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const roomInfo = (await connection.fetchRoomInfo(roomId)) as Record<string, any>;
 
+    // Debug: log top-level keys and nested data keys to find viewer count path
+    console.log(`[${username}] roomInfo keys: ${Object.keys(roomInfo).join(', ')}`);
+    if (roomInfo['data']) {
+      console.log(`[${username}] roomInfo.data keys: ${Object.keys(roomInfo['data']).join(', ')}`);
+    }
+
     const thumbnailUrl = extractThumbnail(roomInfo);
     const startedAt = extractStartTime(roomInfo);
-    const viewerCount = Number(
-      roomInfo['user_count'] ?? roomInfo['stats']?.['total_user'] ?? 0
+    const viewerCount = extractViewerCount(roomInfo);
+    const title = String(
+      roomInfo['title'] ?? roomInfo['data']?.['title'] ?? username
     );
-    const title = String(roomInfo['title'] ?? username);
 
-    console.log(`[${username}] ✅ Is LIVE — roomId: ${roomId}, viewers: ${viewerCount}`);
+    console.log(`[${username}] ✅ Is LIVE — roomId: ${roomId}, viewers: ${viewerCount}, title: ${title}`);
 
     return {
       isLive: true,
@@ -87,20 +93,48 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
 // ─── Internal helpers ────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractViewerCount(roomInfo: Record<string, any>): number {
+  // Try multiple known paths where TikTok stores viewer count
+  const candidates = [
+    roomInfo['user_count'],
+    roomInfo['data']?.['user_count'],
+    roomInfo['stats']?.['total_user'],
+    roomInfo['data']?.['stats']?.['total_user'],
+    roomInfo['like_count'],
+    roomInfo['data']?.['like_count'],
+  ];
+  for (const val of candidates) {
+    const num = Number(val);
+    if (!Number.isNaN(num) && num > 0) return num;
+  }
+  return 0;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractThumbnail(roomInfo: Record<string, any>): string | null {
-  const urlList: unknown[] =
-    roomInfo['cover']?.['url_list'] ??
-    roomInfo['thumb_url']?.['url_list'] ??
-    [];
-  const first = urlList[0];
-  return typeof first === 'string' ? first : null;
+  // Search multiple nested paths
+  const sources = [
+    roomInfo['cover']?.['url_list'],
+    roomInfo['data']?.['cover']?.['url_list'],
+    roomInfo['thumb_url']?.['url_list'],
+    roomInfo['data']?.['thumb_url']?.['url_list'],
+  ];
+  for (const urlList of sources) {
+    if (Array.isArray(urlList) && typeof urlList[0] === 'string') {
+      return urlList[0];
+    }
+  }
+  return null;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractStartTime(roomInfo: Record<string, any>): string {
-  const ts: unknown = roomInfo['create_time'] ?? roomInfo['start_time'];
+  const ts: unknown =
+    roomInfo['create_time'] ??
+    roomInfo['data']?.['create_time'] ??
+    roomInfo['start_time'] ??
+    roomInfo['data']?.['start_time'];
   if (typeof ts === 'number' && ts > 0) {
-    // TikTok timestamps are in seconds
     return new Date(ts * 1000).toISOString();
   }
   return new Date().toISOString();

@@ -1,24 +1,20 @@
 /**
  * Discord notification sender.
  *
- * Sends a rich embed to a Discord channel via the Bot Token REST API.
- * The embed includes streamer info, live title, thumbnail, viewer count,
- * start time, and a direct link to the TikTok live stream.
+ * Sends a NotifyMe-style embed to a Discord channel via the Bot Token REST API.
+ * Layout: mention + live URL in content, embed with streamer author, stream title,
+ * viewer count, thumbnail image, and a "Watch Stream" button.
  */
 
 import type { LiveInfo } from '../types.js';
 
 const DISCORD_API = 'https://discord.com/api/v10';
 
-/** TikTok brand red */
-const EMBED_COLOR = 0xff0050;
+/** Red accent (left border) — matches TikTok brand */
+const EMBED_COLOR = 0xe74c3c;
 
 /**
- * Send a "streamer is live" embed notification to a Discord channel.
- * @param botToken - Discord Bot Token (the full "Bot MTIz..." string)
- * @param channelId - Target channel ID
- * @param liveInfo  - Live stream information from TikTok
- * @param mention   - Optional mention string (e.g. "@everyone" or "<@&ROLE_ID>")
+ * Send a "streamer is live" notification to a Discord channel.
  */
 export async function sendLiveNotification(
   botToken: string,
@@ -27,11 +23,18 @@ export async function sendLiveNotification(
   mention?: string
 ): Promise<void> {
   const embed = buildEmbed(liveInfo);
-  const content = mention ? `${mention} 🔴 **${liveInfo.username}** sedang LIVE!` : undefined;
+  const components = buildComponents(liveInfo);
+
+  // Content: mention + live URL (visible link like NotifyMe)
+  const lines: string[] = [];
+  if (mention) lines.push(mention);
+  lines.push(liveInfo.liveUrl);
+  const content = lines.join('\n');
 
   const payload: DiscordMessagePayload = {
-    ...(content !== undefined && { content }),
+    content,
     embeds: [embed],
+    components,
   };
 
   const response = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
@@ -46,9 +49,7 @@ export async function sendLiveNotification(
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(
-      `Discord API error ${response.status}: ${body}`
-    );
+    throw new Error(`Discord API error ${response.status}: ${body}`);
   }
 
   console.log(`[Discord] ✅ Notification sent for @${liveInfo.username}`);
@@ -57,54 +58,57 @@ export async function sendLiveNotification(
 // ─── Builder ─────────────────────────────────────────────────────────────────
 
 function buildEmbed(info: LiveInfo): DiscordEmbed {
-  const fields: DiscordEmbedField[] = [
-    {
-      name: '📺 Judul',
-      value: info.title || '—',
-      inline: false,
-    },
-    {
-      name: '👥 Viewers',
-      value: info.viewerCount > 0 ? info.viewerCount.toLocaleString() : 'Tidak diketahui',
-      inline: true,
-    },
-    {
-      name: '🕐 Mulai Live',
-      value: formatTimestamp(info.startedAt),
-      inline: true,
-    },
-  ];
-
   const embed: DiscordEmbed = {
-    title: `🔴 ${info.username} sedang LIVE di TikTok!`,
-    url: info.liveUrl,
     color: EMBED_COLOR,
-    fields,
-    footer: {
-      text: 'TikTok Live Notifier • postnotify_bot',
+    author: {
+      name: info.username,
+      url: `https://www.tiktok.com/@${info.username}`,
     },
-    timestamp: new Date().toISOString(),
+    title: info.title || info.username,
+    url: info.liveUrl,
+    fields: [
+      {
+        name: 'Viewers',
+        value: info.viewerCount > 0 ? info.viewerCount.toLocaleString() : '—',
+        inline: false,
+      },
+    ],
+    footer: {
+      text: `postnotify_bot • ${formatTime(info.startedAt)}`,
+    },
   };
 
   if (info.thumbnailUrl) {
     embed.image = { url: info.thumbnailUrl };
   }
 
-  embed.author = {
-    name: `@${info.username}`,
-    url: `https://www.tiktok.com/@${info.username}`,
-    icon_url: 'https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok/webapp/main/webapp-desktop/favicon.ico',
-  };
-
   return embed;
 }
 
-function formatTimestamp(isoString: string): string {
+function buildComponents(info: LiveInfo): DiscordActionRow[] {
+  return [
+    {
+      type: 1, // ACTION_ROW
+      components: [
+        {
+          type: 2,    // BUTTON
+          style: 5,   // LINK
+          label: 'Watch Stream',
+          url: info.liveUrl,
+          emoji: { name: '📺' },
+        },
+      ],
+    },
+  ];
+}
+
+function formatTime(isoString: string): string {
   try {
-    const date = new Date(isoString);
-    // Discord timestamp format: <t:UNIX:R> = relative time
-    const unix = Math.floor(date.getTime() / 1000);
-    return `<t:${unix}:R>`;
+    return new Date(isoString).toLocaleString('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      dateStyle: 'short',
+      timeStyle: 'short',
+    });
   } catch {
     return isoString;
   }
@@ -115,6 +119,7 @@ function formatTimestamp(isoString: string): string {
 interface DiscordMessagePayload {
   content?: string;
   embeds?: DiscordEmbed[];
+  components?: DiscordActionRow[];
 }
 
 interface DiscordEmbed {
@@ -122,11 +127,7 @@ interface DiscordEmbed {
   url?: string;
   description?: string;
   color?: number;
-  author?: {
-    name: string;
-    url?: string;
-    icon_url?: string;
-  };
+  author?: { name: string; url?: string; icon_url?: string };
   thumbnail?: { url: string };
   image?: { url: string };
   fields?: DiscordEmbedField[];
@@ -138,4 +139,17 @@ interface DiscordEmbedField {
   name: string;
   value: string;
   inline?: boolean;
+}
+
+interface DiscordActionRow {
+  type: 1;
+  components: DiscordButton[];
+}
+
+interface DiscordButton {
+  type: 2;
+  style: number;
+  label: string;
+  url?: string;
+  emoji?: { name: string };
 }
