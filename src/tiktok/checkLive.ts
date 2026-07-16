@@ -87,48 +87,57 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
 // ─── TikTok internal API ─────────────────────────────────────────────────────
 
 /**
- * Fetch full room detail from TikTok's internal live detail API.
- * Returns the room data object, or null if unavailable.
+ * Fetch full room detail from TikTok's webcast room info API.
+ * This is the same endpoint the library uses internally.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchRoomDetail(roomId: string): Promise<Record<string, any> | null> {
-  try {
-    const url = `https://www.tiktok.com/api/live/detail/?aid=1988&roomID=${roomId}`;
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        Accept: 'application/json',
-        Referer: 'https://www.tiktok.com/',
-      },
-      signal: AbortSignal.timeout(10_000),
-    });
+  // Try multiple endpoints — TikTok sometimes blocks one but not the other
+  const endpoints = [
+    `https://webcast.tiktok.com/webcast/room/info/?aid=1988&room_id=${roomId}`,
+    `https://www.tiktok.com/api/live/detail/?aid=1988&roomID=${roomId}`,
+  ];
 
-    if (!response.ok) {
-      console.warn(`[TikTok API] HTTP ${response.status} for room ${roomId}`);
-      return null;
+  for (const url of endpoints) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          Accept: 'application/json',
+          Referer: 'https://www.tiktok.com/',
+        },
+        signal: AbortSignal.timeout(10_000),
+      });
+
+      if (!response.ok) {
+        console.warn(`[TikTok API] HTTP ${response.status} from ${new URL(url).hostname}`);
+        continue;
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const json = (await response.json()) as Record<string, any>;
+
+      // webcast/room/info/ returns { data: { ...roomData } }
+      const roomData = json['data'] ?? json['LiveRoomInfo'] ?? json['roomInfo'];
+
+      if (roomData && typeof roomData === 'object') {
+        const keys = Object.keys(roomData);
+        console.log(`[TikTok API] ✅ Got room data (${keys.length} keys): ${keys.slice(0, 15).join(', ')}...`);
+        return roomData as Record<string, any>;
+      }
+
+      console.warn(`[TikTok API] Empty data from ${new URL(url).hostname}`);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.warn(`[TikTok API] Error from endpoint: ${msg}`);
     }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const json = (await response.json()) as Record<string, any>;
-
-    // Debug: log available keys
-    const liveRoom = json['LiveRoomInfo'];
-    if (liveRoom) {
-      console.log(`[TikTok API] LiveRoomInfo keys: ${Object.keys(liveRoom).join(', ')}`);
-      return liveRoom;
-    }
-
-    // Fallback: try other known response shapes
-    const roomInfo = json['data'] ?? json['roomInfo'] ?? json;
-    console.log(`[TikTok API] Response keys: ${Object.keys(json).join(', ')}`);
-    return roomInfo;
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.warn(`[TikTok API] Failed to fetch room detail: ${msg}`);
-    return null;
   }
+
+  console.warn(`[TikTok API] All endpoints failed for room ${roomId}`);
+  return null;
 }
+
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
