@@ -32,19 +32,17 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
       return { isLive: false, username };
     }
 
-    // Step 2: Fetch room details to populate the Discord embed
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const roomInfo = (await connection.fetchRoomInfo()) as Record<string, any>;
-
-    const roomId = String(
-      roomInfo['id'] ?? roomInfo['roomId'] ?? roomInfo['room_id'] ?? ''
-    );
+    // Step 2: Get the roomId first — required before fetching room info
+    const roomId = await connection.fetchRoomId();
 
     if (!roomId) {
-      // Live but couldn't get a stable room ID — skip to avoid dedup issues
       console.warn(`[${username}] ⚠️  Live but roomId unavailable — skipping.`);
       return { isLive: false, username };
     }
+
+    // Step 3: Fetch room details using the resolved roomId
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const roomInfo = (await connection.fetchRoomInfo(roomId)) as Record<string, any>;
 
     const thumbnailUrl = extractThumbnail(roomInfo);
     const startedAt = extractStartTime(roomInfo);
