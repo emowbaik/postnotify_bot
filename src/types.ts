@@ -16,6 +16,8 @@ export interface LiveInfo {
   viewerCount: number;
   /** URL to the live stream thumbnail image. */
   thumbnailUrl: string | null;
+  /** URL to the streamer's TikTok profile picture. */
+  profilePicUrl: string | null;
   /** Direct link to the TikTok live stream. */
   liveUrl: string;
   /** ISO timestamp of when the live started. */

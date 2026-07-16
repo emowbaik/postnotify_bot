@@ -1,17 +1,17 @@
 /**
  * Discord notification sender.
  *
- * Sends a NotifyMe-style embed to a Discord channel via the Bot Token REST API.
- * Layout: mention + live URL in content, embed with streamer author, stream title,
- * viewer count, thumbnail image, and a "Watch Stream" button.
+ * Sends a styled embed to a Discord channel via the Bot Token REST API.
+ * Layout matches the user's requested design with profile pic, title,
+ * inline viewers/start time, thumbnail image, and Watch Stream button.
  */
 
 import type { LiveInfo } from '../types.js';
 
 const DISCORD_API = 'https://discord.com/api/v10';
 
-/** Red accent (left border) — matches TikTok brand */
-const EMBED_COLOR = 0xe74c3c;
+/** Bright red — matches the accent line in the user's reference */
+const EMBED_COLOR = 0xff0000;
 
 /**
  * Send a "streamer is live" notification to a Discord channel.
@@ -25,11 +25,10 @@ export async function sendLiveNotification(
   const embed = buildEmbed(liveInfo);
   const components = buildComponents(liveInfo);
 
-  // Content: mention + live URL (visible link like NotifyMe)
-  const lines: string[] = [];
-  if (mention) lines.push(mention);
-  lines.push(liveInfo.liveUrl);
-  const content = lines.join('\n');
+  // Content: mention + "🔴 username sedang LIVE!" (above embed)
+  const content = mention
+    ? `${mention} 🔴 **${liveInfo.username}** sedang LIVE!`
+    : `🔴 **${liveInfo.username}** sedang LIVE!`;
 
   const payload: DiscordMessagePayload = {
     content,
@@ -55,29 +54,45 @@ export async function sendLiveNotification(
   console.log(`[Discord] ✅ Notification sent for @${liveInfo.username}`);
 }
 
-// ─── Builder ─────────────────────────────────────────────────────────────────
+// ─── Embed Builder ───────────────────────────────────────────────────────────
 
 function buildEmbed(info: LiveInfo): DiscordEmbed {
   const embed: DiscordEmbed = {
     color: EMBED_COLOR,
+
+    // Author: profile pic + @username
     author: {
-      name: info.username,
+      name: `@${info.username}`,
       url: `https://www.tiktok.com/@${info.username}`,
+      ...(info.profilePicUrl && { icon_url: info.profilePicUrl }),
     },
-    title: info.title || info.username,
+
+    // Title: 📺 + stream title (clickable link to live)
+    title: `📺 ${info.title || info.username}`,
     url: info.liveUrl,
+
+    // Inline fields: Viewers + Mulai Live side by side
     fields: [
       {
-        name: 'Viewers',
+        name: '👥 Viewers',
         value: info.viewerCount > 0 ? info.viewerCount.toLocaleString() : '—',
-        inline: false,
+        inline: true,
+      },
+      {
+        name: '🕐 Mulai Live',
+        value: formatDiscordTimestamp(info.startedAt),
+        inline: true,
       },
     ],
+
+    // Footer
     footer: {
-      text: `postnotify_bot • ${formatTime(info.startedAt)}`,
+      text: 'TikTok Live Notifier • postnotify_bot',
     },
+    timestamp: new Date().toISOString(),
   };
 
+  // Large thumbnail image
   if (info.thumbnailUrl) {
     embed.image = { url: info.thumbnailUrl };
   }
@@ -88,11 +103,11 @@ function buildEmbed(info: LiveInfo): DiscordEmbed {
 function buildComponents(info: LiveInfo): DiscordActionRow[] {
   return [
     {
-      type: 1, // ACTION_ROW
+      type: 1,
       components: [
         {
-          type: 2,    // BUTTON
-          style: 5,   // LINK
+          type: 2,
+          style: 5, // LINK button
           label: 'Watch Stream',
           url: info.liveUrl,
           emoji: { name: '📺' },
@@ -102,13 +117,11 @@ function buildComponents(info: LiveInfo): DiscordActionRow[] {
   ];
 }
 
-function formatTime(isoString: string): string {
+/** Discord relative timestamp format: <t:UNIX:R> → "14 minutes ago" */
+function formatDiscordTimestamp(isoString: string): string {
   try {
-    return new Date(isoString).toLocaleString('id-ID', {
-      timeZone: 'Asia/Jakarta',
-      dateStyle: 'short',
-      timeStyle: 'short',
-    });
+    const unix = Math.floor(new Date(isoString).getTime() / 1000);
+    return `<t:${unix}:R>`;
   } catch {
     return isoString;
   }

@@ -51,6 +51,7 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
     }
 
     const thumbnailUrl = extractThumbnail(roomInfo);
+    const profilePicUrl = extractProfilePic(roomInfo);
     const startedAt = extractStartTime(roomInfo);
     const viewerCount = extractViewerCount(roomInfo);
     const title = String(
@@ -66,6 +67,7 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
       title,
       viewerCount,
       thumbnailUrl,
+      profilePicUrl,
       liveUrl,
       startedAt,
     };
@@ -118,6 +120,22 @@ function extractThumbnail(roomInfo: Record<string, any>): string | null {
     roomInfo['data']?.['cover']?.['url_list'],
     roomInfo['thumb_url']?.['url_list'],
     roomInfo['data']?.['thumb_url']?.['url_list'],
+  ];
+  for (const urlList of sources) {
+    if (Array.isArray(urlList) && typeof urlList[0] === 'string') {
+      return urlList[0];
+    }
+  }
+  return null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractProfilePic(roomInfo: Record<string, any>): string | null {
+  const sources = [
+    roomInfo['owner']?.['avatar_thumb']?.['url_list'],
+    roomInfo['data']?.['owner']?.['avatar_thumb']?.['url_list'],
+    roomInfo['owner']?.['avatar_medium']?.['url_list'],
+    roomInfo['data']?.['owner']?.['avatar_medium']?.['url_list'],
   ];
   for (const urlList of sources) {
     if (Array.isArray(urlList) && typeof urlList[0] === 'string') {
