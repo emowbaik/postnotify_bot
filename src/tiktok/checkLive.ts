@@ -1,22 +1,18 @@
 /**
  * TikTok live status checker.
  *
- * Uses `tiktok-live-connector` v2's `connect()` method which internally:
- *   1. Resolves the roomId
- *   2. Fetches full room info (title, cover, viewers, owner avatar, etc.)
- *   3. Opens WebSocket for live events
+ * Strategy:
+ *   1. `fetchIsLive()` — boolean check (reliable, works)
+ *   2. `fetchRoomId()` — get room ID (reliable, works)
+ *   3. Direct HTTP to TikTok internal API `/api/live/detail/` — full room data
+ *      (cover, viewers, title, owner avatar, start time)
  *
- * We immediately `disconnect()` after connect resolves — we only need
- * the room data snapshot, not the live event stream.
- *
- * `fetchRoomInfo()` alone only returns a minimal API wrapper (data.prompts),
- * NOT the full room data. That's why we must use connect().
+ * We avoid `connect()` and `fetchRoomInfo()` because both only return
+ * a minimal API wrapper `{data: {prompts}, extra, status_code}`.
  */
 
 import { TikTokLiveConnection } from 'tiktok-live-connector';
 import type { LiveCheckResult } from '../types.js';
-
-const CONNECT_TIMEOUT_MS = 15_000;
 
 /**
  * Check whether a TikTok user is currently live.
@@ -24,41 +20,33 @@ const CONNECT_TIMEOUT_MS = 15_000;
  */
 export async function checkIsLive(username: string): Promise<LiveCheckResult> {
   const liveUrl = `https://www.tiktok.com/@${username}/live`;
-  const connection = new TikTokLiveConnection(username, {
-    enableExtendedGiftInfo: false,
-  });
+  const connection = new TikTokLiveConnection(username, {});
 
   try {
-    // Connect with timeout — this fetches full room data internally
-    const state = await Promise.race([
-      connection.connect(),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Connect timeout')), CONNECT_TIMEOUT_MS)
-      ),
-    ]);
+    // Step 1: Boolean live check
+    const isLive = await connection.fetchIsLive();
 
-    // Immediately disconnect — we only needed the room data snapshot
-    try { await connection.disconnect(); } catch { /* ignore */ }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const roomInfo = (state as any)?.roomInfo ?? connection.roomInfo ?? {};
-
-    // Debug: log keys to trace data structure
-    const keys = Object.keys(roomInfo);
-    console.log(`[${username}] roomInfo keys: ${keys.join(', ')}`);
-
-    const roomId = String(connection.roomId ?? roomInfo['id'] ?? roomInfo['room_id'] ?? '');
-
-    if (!roomId) {
-      console.warn(`[${username}] ⚠️  Connected but no roomId — skipping.`);
+    if (!isLive) {
+      console.log(`[${username}] 💤 Not live.`);
       return { isLive: false, username };
     }
 
-    const thumbnailUrl = extractThumbnail(roomInfo);
-    const profilePicUrl = extractProfilePic(roomInfo);
-    const startedAt = extractStartTime(roomInfo);
-    const viewerCount = extractViewerCount(roomInfo);
-    const title = String(roomInfo['title'] ?? username);
+    // Step 2: Get roomId
+    const roomId = await connection.fetchRoomId();
+
+    if (!roomId) {
+      console.warn(`[${username}] ⚠️  Live but no roomId — skipping.`);
+      return { isLive: false, username };
+    }
+
+    // Step 3: Fetch full room data via TikTok internal API
+    const roomData = await fetchRoomDetail(roomId);
+
+    const title = roomData?.['title'] ?? username;
+    const viewerCount = Number(roomData?.['user_count'] ?? roomData?.['user_count_str'] ?? 0);
+    const thumbnailUrl = extractUrl(roomData?.['cover']?.['url_list']);
+    const profilePicUrl = extractUrl(roomData?.['owner']?.['avatar_thumb']?.['url_list']);
+    const startedAt = extractStartTime(roomData);
 
     console.log(`[${username}] ✅ LIVE — room: ${roomId}, viewers: ${viewerCount}, title: ${title}`);
 
@@ -74,86 +62,86 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
       startedAt,
     };
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    const lower = message.toLowerCase();
+    const msg = error instanceof Error ? error.message : String(error);
+    const lower = msg.toLowerCase();
 
-    // Gracefully disconnect on error
-    try { await connection.disconnect(); } catch { /* ignore */ }
-
-    const isExpectedOffline =
+    const isOffline =
       lower.includes('not live') ||
       lower.includes('offline') ||
+      lower.includes("isn't online") ||
       lower.includes('ended') ||
       lower.includes('user is not live') ||
       lower.includes('useroflline') ||
-      lower.includes('connect timeout');
+      lower.includes('timeout');
 
-    if (isExpectedOffline) {
+    if (isOffline) {
       console.log(`[${username}] 💤 Not live.`);
     } else {
-      console.warn(`[${username}] ⚠️  Error: ${message}`);
+      console.warn(`[${username}] ⚠️  Error: ${msg}`);
     }
 
     return { isLive: false, username };
   }
 }
 
-// ─── Internal helpers ────────────────────────────────────────────────────────
+// ─── TikTok internal API ─────────────────────────────────────────────────────
 
+/**
+ * Fetch full room detail from TikTok's internal live detail API.
+ * Returns the room data object, or null if unavailable.
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function extractViewerCount(roomInfo: Record<string, any>): number {
-  const candidates = [
-    roomInfo['user_count'],
-    roomInfo['stats']?.['total_user'],
-    roomInfo['data']?.['user_count'],
-    roomInfo['data']?.['stats']?.['total_user'],
-  ];
-  for (const val of candidates) {
-    const num = Number(val);
-    if (!Number.isNaN(num) && num > 0) return num;
+async function fetchRoomDetail(roomId: string): Promise<Record<string, any> | null> {
+  try {
+    const url = `https://www.tiktok.com/api/live/detail/?aid=1988&roomID=${roomId}`;
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        Accept: 'application/json',
+        Referer: 'https://www.tiktok.com/',
+      },
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (!response.ok) {
+      console.warn(`[TikTok API] HTTP ${response.status} for room ${roomId}`);
+      return null;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const json = (await response.json()) as Record<string, any>;
+
+    // Debug: log available keys
+    const liveRoom = json['LiveRoomInfo'];
+    if (liveRoom) {
+      console.log(`[TikTok API] LiveRoomInfo keys: ${Object.keys(liveRoom).join(', ')}`);
+      return liveRoom;
+    }
+
+    // Fallback: try other known response shapes
+    const roomInfo = json['data'] ?? json['roomInfo'] ?? json;
+    console.log(`[TikTok API] Response keys: ${Object.keys(json).join(', ')}`);
+    return roomInfo;
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.warn(`[TikTok API] Failed to fetch room detail: ${msg}`);
+    return null;
   }
-  return 0;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function extractThumbnail(roomInfo: Record<string, any>): string | null {
-  const sources = [
-    roomInfo['cover']?.['url_list'],
-    roomInfo['data']?.['cover']?.['url_list'],
-    roomInfo['thumb_url']?.['url_list'],
-    roomInfo['data']?.['thumb_url']?.['url_list'],
-  ];
-  for (const urlList of sources) {
-    if (Array.isArray(urlList) && typeof urlList[0] === 'string') {
-      return urlList[0];
-    }
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function extractUrl(urlList: unknown): string | null {
+  if (Array.isArray(urlList) && typeof urlList[0] === 'string') {
+    return urlList[0];
   }
   return null;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function extractProfilePic(roomInfo: Record<string, any>): string | null {
-  const sources = [
-    roomInfo['owner']?.['avatar_thumb']?.['url_list'],
-    roomInfo['owner']?.['avatar_medium']?.['url_list'],
-    roomInfo['data']?.['owner']?.['avatar_thumb']?.['url_list'],
-    roomInfo['data']?.['owner']?.['avatar_medium']?.['url_list'],
-  ];
-  for (const urlList of sources) {
-    if (Array.isArray(urlList) && typeof urlList[0] === 'string') {
-      return urlList[0];
-    }
-  }
-  return null;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function extractStartTime(roomInfo: Record<string, any>): string {
-  const ts: unknown =
-    roomInfo['create_time'] ??
-    roomInfo['data']?.['create_time'] ??
-    roomInfo['start_time'] ??
-    roomInfo['data']?.['start_time'];
+function extractStartTime(roomData: Record<string, any> | null): string {
+  const ts = roomData?.['create_time'] ?? roomData?.['start_time'];
   if (typeof ts === 'number' && ts > 0) {
     return new Date(ts * 1000).toISOString();
   }
