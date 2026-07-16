@@ -67,8 +67,8 @@ function buildEmbed(info: LiveInfo): DiscordEmbed {
       ...(info.profilePicUrl && { icon_url: info.profilePicUrl }),
     },
 
-    // Title: 📺 + stream title (clickable link to live)
-    title: `📺 ${info.title || info.username}`,
+    // Title: 🔴 + stream title (clickable link to live)
+    title: `🔴 ${info.title || info.username}`,
     url: info.liveUrl,
 
     // Inline fields: Viewers + Mulai Live side by side

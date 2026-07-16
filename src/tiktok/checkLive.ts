@@ -2,13 +2,10 @@
  * TikTok live status checker.
  *
  * Strategy:
- *   1. `fetchIsLive()` — boolean check (reliable, works)
- *   2. `fetchRoomId()` — get room ID (reliable, works)
- *   3. Direct HTTP to TikTok internal API `/api/live/detail/` — full room data
- *      (cover, viewers, title, owner avatar, start time)
- *
- * We avoid `connect()` and `fetchRoomInfo()` because both only return
- * a minimal API wrapper `{data: {prompts}, extra, status_code}`.
+ *   1. `fetchIsLive()` — boolean check
+ *   2. `fetchRoomId()` — get room ID
+ *   3. `webcast.tiktok.com/webcast/room/info/` — full room data
+ *      (title, cover, owner avatar, viewer count, start time)
  */
 
 import { TikTokLiveConnection } from 'tiktok-live-connector';
@@ -110,34 +107,22 @@ async function fetchRoomDetail(roomId: string): Promise<Record<string, any> | nu
         signal: AbortSignal.timeout(10_000),
       });
 
-      if (!response.ok) {
-        console.warn(`[TikTok API] HTTP ${response.status} from ${new URL(url).hostname}`);
-        continue;
-      }
+      if (!response.ok) continue;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const json = (await response.json()) as Record<string, any>;
-
-      // webcast/room/info/ returns { data: { ...roomData } }
       const roomData = json['data'] ?? json['LiveRoomInfo'] ?? json['roomInfo'];
 
       if (roomData && typeof roomData === 'object') {
-        const keys = Object.keys(roomData);
-        console.log(`[TikTok API] ✅ Got room data (${keys.length} keys): ${keys.slice(0, 15).join(', ')}...`);
         return roomData as Record<string, any>;
       }
-
-      console.warn(`[TikTok API] Empty data from ${new URL(url).hostname}`);
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error);
-      console.warn(`[TikTok API] Error from endpoint: ${msg}`);
+    } catch {
+      // try next endpoint
     }
   }
 
-  console.warn(`[TikTok API] All endpoints failed for room ${roomId}`);
   return null;
 }
-
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
