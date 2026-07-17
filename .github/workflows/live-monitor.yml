@@ -18,6 +18,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
+    # Prevent overlapping runs — only one instance at a time.
+    # New run cancels the previous one to avoid duplicate notifications.
+    concurrency:
+      group: live-monitor
+      cancel-in-progress: true
+
     permissions:
       contents: write   # needed to commit state.json back to the repo
       actions: write    # needed to delete old workflow runs
