@@ -39,7 +39,7 @@ async function run(): Promise<void> {
     tiktokUsernames,
     youtubeChannelIds,
     discordBotToken,
-    discordChannelId,
+    tiktokDiscordChannelId,
     tiktokDiscordMention,
     youtubeDiscordChannelId,
     youtubeDiscordMention,
@@ -103,7 +103,7 @@ async function run(): Promise<void> {
 
     try {
       const route = getDiscordRoute(liveInfo, {
-        channelId: discordChannelId,
+        channelId: tiktokDiscordChannelId,
         mention: tiktokDiscordMention,
       }, youtubeDiscordChannelId, youtubeDiscordMention);
 

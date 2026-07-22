@@ -26,8 +26,8 @@ export const env = {
   /** Discord Bot Token (Bot MTIz...) */
   discordBotToken: requireEnv('DISCORD_BOT_TOKEN'),
 
-  /** Discord channel ID where notifications are sent */
-  discordChannelId: requireEnv('DISCORD_CHANNEL_ID'),
+  /** Discord channel ID where TikTok notifications are sent */
+  tiktokDiscordChannelId: requireEnv('TIKTOK_DISCORD_CHANNEL_ID'),
 
   /**
    * Comma-separated list of TikTok usernames to monitor (without @).

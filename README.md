@@ -79,7 +79,7 @@ Go to your repository → **Settings → Secrets and variables → Actions → N
 | Secret | Required | Description |
 |--------|:--------:|-------------|
 | `DISCORD_BOT_TOKEN` | ✅ | Shared Discord bot token from Step 2 |
-| `DISCORD_CHANNEL_ID` | ✅ | Discord channel for TikTok alerts |
+| `TIKTOK_DISCORD_CHANNEL_ID` | ✅ | Discord channel for TikTok alerts |
 | `TIKTOK_USERNAMES` | ✅ | Comma-separated TikTok usernames without `@` |
 | `LOOP_TOKEN` | ✅ | GitHub PAT from Step 3 |
 | `TIKTOK_DISCORD_MENTION` | ❌ | Optional ping for TikTok alerts |
@@ -96,7 +96,7 @@ YOUTUBE_CHANNEL_IDS=UCxxxxxxxxxxxxxxxxxxxxxx,UCyyyyyyyyyyyyyyyyyyyyyy
 
 Find a YouTube channel ID in the channel page source, an About-page URL, or through a channel ID lookup. Use the immutable `UC...` ID, not a handle such as `@creator`.
 
-YouTube monitoring activates only when both `YOUTUBE_CHANNEL_IDS` and `YOUTUBE_DISCORD_CHANNEL_ID` are present. TikTok configuration remains required.
+YouTube monitoring activates only when both `YOUTUBE_CHANNEL_IDS` and `YOUTUBE_DISCORD_CHANNEL_ID` are present. TikTok configuration requires `TIKTOK_USERNAMES`, `TIKTOK_DISCORD_CHANNEL_ID`, and `DISCORD_BOT_TOKEN`.
 
 **Mention examples:**
 
@@ -167,7 +167,7 @@ The detector only reports broadcasts marked active now. Scheduled streams and Pr
 
 ### Separate Discord Routing
 
-TikTok alerts use `DISCORD_CHANNEL_ID` and `TIKTOK_DISCORD_MENTION`. YouTube alerts use `YOUTUBE_DISCORD_CHANNEL_ID` and `YOUTUBE_DISCORD_MENTION`. Both routes share `DISCORD_BOT_TOKEN`.
+TikTok alerts use `TIKTOK_DISCORD_CHANNEL_ID` and `TIKTOK_DISCORD_MENTION`. YouTube alerts use `YOUTUBE_DISCORD_CHANNEL_ID` and `YOUTUBE_DISCORD_MENTION`. Both routes share `DISCORD_BOT_TOKEN`.
 
 ### Changing the Polling Interval
 
