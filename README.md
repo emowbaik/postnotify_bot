@@ -14,6 +14,7 @@
 - 🔒 Concurrency guard: hanya 1 workflow aktif sekaligus, mencegah duplikat
 - 💾 State persisten via `state.json` yang di-commit ke repo
 - 🧹 Auto-cleanup: workflow run lama dihapus otomatis
+- 🔄 Keepalive otomatis: mencegah GitHub menonaktifkan workflow setelah 60 hari tidak aktif
 - ♾️ Self-triggering loop — berjalan terus tanpa server eksternal
 
 ---
@@ -175,6 +176,15 @@ state.json                           ← Persisted state (committed to repo)
 - **Loop otomatis restart**: Setiap hari pukul 00:00 UTC, cron schedule akan memulai ulang loop jika sebelumnya mati.
 - **Concurrency**: Hanya 1 workflow run aktif sekaligus (`cancel-in-progress: true`), mencegah notifikasi duplikat.
 - **Dependency**: Memerlukan `sharp` untuk generate preview image.
+
+### 🔄 Keepalive Otomatis (Anti-60-Day Disable)
+
+GitHub secara otomatis **menonaktifkan** scheduled workflow setelah **60 hari tanpa aktivitas** (terutama pada repo yang di-fork).
+
+Bot ini menggunakan [`liskin/gh-workflow-keepalive`](https://github.com/liskin/gh-workflow-keepalive) untuk mencegah hal ini. Setiap kali cron harian (`0 0 * * *`) terpicu, job `workflow-keepalive` akan memeriksa dan mengaktifkan kembali workflow jika GitHub menandainya sebagai disabled — tanpa membuat commit dummy yang mengotori history.
+
+> **Untuk fork**: Pastikan GitHub Actions diizinkan di fork kamu melalui **Settings → Actions → General → Allow all actions**. Lalu jalankan workflow sekali secara manual via **Run workflow** agar loop dimulai.
+
 
 ---
 

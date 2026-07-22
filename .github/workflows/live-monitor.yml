@@ -126,3 +126,15 @@ jobs:
             echo "❌ Failed to trigger next iteration (HTTP $HTTP_STATUS)."
             exit 1
           fi
+
+  # ── Keepalive: mencegah GitHub menonaktifkan scheduled workflow ───────────
+  # GitHub menonaktifkan scheduled workflow setelah 60 hari tanpa aktivitas.
+  # Job ini berjalan setiap kali cron schedule terpicu dan mengaktifkan ulang
+  # workflow jika GitHub menandainya sebagai disabled.
+  workflow-keepalive:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: liskin/gh-workflow-keepalive@v1
