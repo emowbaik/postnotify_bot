@@ -7,10 +7,13 @@
 
 ## ✨ Fitur
 
-- 🔴 Deteksi live TikTok secara otomatis (~1 menit delay)
-- 📨 Notifikasi Discord dengan rich embed (thumbnail, judul, viewer count, waktu mulai)
+- 🔴 Deteksi live TikTok secara otomatis (~5 menit interval)
+- 🖼️ Preview gambar landscape 1280×720 yang di-generate otomatis (background blur, avatar, judul, statistik)
+- 📨 Notifikasi Discord dengan rich embed (penonton, waktu mulai, tombol Tonton Live & Lihat Profil)
 - 🔕 Anti-spam: tidak mengirim notifikasi duplikat untuk sesi live yang sama
+- 🔒 Concurrency guard: hanya 1 workflow aktif sekaligus, mencegah duplikat
 - 💾 State persisten via `state.json` yang di-commit ke repo
+- 🧹 Auto-cleanup: workflow run lama dihapus otomatis
 - ♾️ Self-triggering loop — berjalan terus tanpa server eksternal
 
 ---
@@ -28,7 +31,7 @@ cd postnotify_bot
 
 1. Buka [Discord Developer Portal](https://discord.com/developers/applications)
 2. Buat aplikasi baru → **Bot** → salin **Bot Token**
-3. Invite bot ke server kamu dengan permission **Send Messages** + **Embed Links**
+3. Invite bot ke server kamu dengan permission **Send Messages** + **Embed Links** + **Attach Files**
 4. Salin **Channel ID** dari channel tujuan notifikasi (klik kanan channel → Copy Channel ID)
 
 ### 3. Buat GitHub Personal Access Token (LOOP\_TOKEN)
@@ -53,7 +56,7 @@ Buka repositori GitHub → **Settings → Secrets and variables → Actions → 
 | `TIKTOK_USERNAMES` | Comma-separated username TikTok | `streamer1,streamer2,streamer3` |
 | `LOOP_TOKEN` | GitHub PAT dari langkah 3 | `ghp_xxxxxxxxxxxx` |
 
-> **Tip**: `DISCORD_MENTION` bersifat opsional. Jika tidak diset, notifikasi dikirim tanpa mention.
+> **Tip**: `DISCORD_MENTION` bersifat opsional. Jika tidak diset, notifikasi dikirim tanpa mention. Mendukung role mention (`<@&ID>`), user mention (`<@ID>`), `@everyone`, dan `@here`.
 
 ### 5. Jalankan bot pertama kali
 
@@ -77,20 +80,32 @@ Loop juga bisa dihentikan dengan me-revoke `LOOP_TOKEN`.
 ## 🔔 Contoh Notifikasi Discord
 
 ```
-<@&ROLE_ID> 🔴 streamer123 sedang LIVE!
+@BOT 🔴 @streamer123 sedang LIVE di TikTok!
 
-┌─────────────────────────────────────┐
-│ 🔴 streamer123 sedang LIVE di TikTok│
-│                                     │
-│ 📺 Judul   Gaming bareng subscriber │
-│ 👥 Viewers  1,234                   │
-│ 🕐 Mulai    3 menit yang lalu       │
-│                                     │
-│ [thumbnail gambar live]             │
-│                                     │
-│ TikTok Live Notifier • postnotify_bot│
-└─────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│ TikTok LIVE • @streamer123              │  ← author + avatar
+│                                         │
+│ 📺 Gaming bareng subscriber             │  ← judul live (clickable)
+│                                         │
+│ 🔴 LIVE SEKARANG                        │
+│                                         │
+│ @streamer123 sedang melakukan siaran     │
+│ langsung. Masuk sekarang sebelum live    │
+│ berakhir.                               │
+│                                         │
+│ 👁️ Penonton: 1.234                      │
+│ ⏱️ Dimulai: 5 menit yang lalu           │
+│ 📱 Platform: TikTok Live               │
+│                                         │
+│ [preview landscape 1280×720]            │
+│                                         │
+│ PostNotify • TikTok Live Alert          │
+├─────────────────────────────────────────┤
+│ 📺 Tonton Live    👤 Lihat Profil       │  ← button links
+└─────────────────────────────────────────┘
 ```
+
+Preview image berisi: background blur dari thumbnail live, poster portrait di kanan, avatar + username + badge "LIVE SEKARANG" + judul + statistik penonton & durasi di kiri.
 
 ---
 
@@ -108,6 +123,10 @@ streamer1,streamer2,streamer3
 
 Username tanpa `@`. Pisahkan dengan koma.
 
+### Mengubah interval polling
+
+Edit `sleep 300` di `.github/workflows/live-monitor.yml` (default: 300 detik = 5 menit).
+
 ---
 
 ## 🏗️ Arsitektur
@@ -121,9 +140,10 @@ src/
 ├── config/
 │   └── env.ts                       ← Env variable validation
 ├── tiktok/
-│   └── checkLive.ts                 ← TikTok live status checker
+│   └── checkLive.ts                 ← TikTok live checker (HTTP API)
 └── discord/
-    └── sendEmbed.ts                 ← Discord rich embed sender
+    ├── sendEmbed.ts                 ← Discord notifikasi + FormData upload
+    └── thumbnail-generator.ts       ← Preview image generator (Sharp)
 state.json                           ← Persisted state (committed to repo)
 ```
 
@@ -133,11 +153,13 @@ state.json                           ← Persisted state (committed to repo)
         ↓
   [check TikTok live status]
         ↓
-  [send Discord notification if new live]
+  [generate preview image + send Discord notification]
         ↓
   [commit state.json]
         ↓
-  [sleep 60 seconds]
+  [cleanup old workflow runs]
+        ↓
+  [sleep 300 seconds]
         ↓
   [repository_dispatch → trigger next run]
         ↓
@@ -148,9 +170,11 @@ state.json                           ← Persisted state (committed to repo)
 
 ## ⚠️ Catatan Penting
 
-- **API tidak resmi**: Bot ini menggunakan `tiktok-live-connector` yang memanfaatkan API internal TikTok. TikTok dapat mengubah API kapan saja.
-- **GitHub Actions minutes**: Self-triggering loop mengonsumsi GitHub Actions minutes. Akun gratis mendapat 2,000 menit/bulan. Dengan interval ~1 menit, bot ini mengonsumsi sekitar 1,440 menit/hari — pertimbangkan untuk meningkatkan sleep duration jika minutes terbatas.
+- **API tidak resmi**: Bot ini menggunakan `tiktok-live-connector` + TikTok webcast API internal. TikTok dapat mengubah API kapan saja.
+- **GitHub Actions minutes**: Self-triggering loop mengonsumsi GitHub Actions minutes. Untuk repo **public**, minutes tidak terbatas. Untuk repo **private**, akun gratis mendapat 2.000 menit/bulan — dengan interval 5 menit, bot ini mengonsumsi sekitar ~290 menit/hari.
 - **Loop otomatis restart**: Setiap hari pukul 00:00 UTC, cron schedule akan memulai ulang loop jika sebelumnya mati.
+- **Concurrency**: Hanya 1 workflow run aktif sekaligus (`cancel-in-progress: true`), mencegah notifikasi duplikat.
+- **Dependency**: Memerlukan `sharp` untuk generate preview image.
 
 ---
 

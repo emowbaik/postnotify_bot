@@ -89,13 +89,12 @@ jobs:
           done
           echo "✅ Cleanup done — only latest run kept."
 
-      # ── 7. Sleep 60 seconds before triggering next loop ──────────────────
-      # This creates an approximately 1-minute polling interval.
-      # The loop check occupies the first ~30s; sleep fills the rest.
+      # ── 7. Sleep 300 seconds before triggering next loop ─────────────────
+      # This creates an approximately 5-minute polling interval.
       - name: Wait before next check
         run: |
-          echo "Sleeping 60 seconds before triggering next check..."
-          sleep 60
+          echo "Sleeping 300 seconds before triggering next check..."
+          sleep 300
 
       # ── 7. Self-trigger: fire the next loop iteration ────────────────────
       # Uses LOOP_TOKEN (a GitHub PAT with repo scope) because GITHUB_TOKEN
