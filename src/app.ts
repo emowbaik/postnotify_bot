@@ -40,7 +40,7 @@ async function run(): Promise<void> {
     youtubeChannelIds,
     discordBotToken,
     discordChannelId,
-    discordMention,
+    tiktokDiscordMention,
     youtubeDiscordChannelId,
     youtubeDiscordMention,
   } = env;
@@ -104,7 +104,7 @@ async function run(): Promise<void> {
     try {
       const route = getDiscordRoute(liveInfo, {
         channelId: discordChannelId,
-        mention: discordMention,
+        mention: tiktokDiscordMention,
       }, youtubeDiscordChannelId, youtubeDiscordMention);
 
       await sendLiveNotification(discordBotToken, route.channelId, liveInfo, route.mention);

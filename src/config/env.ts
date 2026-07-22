@@ -39,10 +39,10 @@ export const env = {
     .filter(Boolean),
 
   /**
-   * Optional: Discord role/user mention prepended to the notification.
+   * Optional: Discord role/user mention prepended to TikTok notifications.
    * Example: "<@&123456789>" or "@everyone"
    */
-  discordMention: optionalEnv('DISCORD_MENTION'),
+  tiktokDiscordMention: optionalEnv('TIKTOK_DISCORD_MENTION'),
 
   /**
    * Comma-separated list of YouTube channel IDs (`UC...`) to monitor.

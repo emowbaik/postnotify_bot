@@ -31,7 +31,7 @@ jobs:
     env:
       DISCORD_BOT_TOKEN:          ${{ secrets.DISCORD_BOT_TOKEN }}
       DISCORD_CHANNEL_ID:         ${{ secrets.DISCORD_CHANNEL_ID }}
-      DISCORD_MENTION:            ${{ secrets.DISCORD_MENTION }}
+      TIKTOK_DISCORD_MENTION:    ${{ secrets.TIKTOK_DISCORD_MENTION }}
       TIKTOK_USERNAMES:           ${{ secrets.TIKTOK_USERNAMES }}
       YOUTUBE_CHANNEL_IDS:        ${{ secrets.YOUTUBE_CHANNEL_IDS }}
       YOUTUBE_DISCORD_CHANNEL_ID: ${{ secrets.YOUTUBE_DISCORD_CHANNEL_ID }}

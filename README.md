@@ -82,7 +82,7 @@ Go to your repository → **Settings → Secrets and variables → Actions → N
 | `DISCORD_CHANNEL_ID` | ✅ | Discord channel for TikTok alerts |
 | `TIKTOK_USERNAMES` | ✅ | Comma-separated TikTok usernames without `@` |
 | `LOOP_TOKEN` | ✅ | GitHub PAT from Step 3 |
-| `DISCORD_MENTION` | ❌ | Optional ping for TikTok alerts |
+| `TIKTOK_DISCORD_MENTION` | ❌ | Optional ping for TikTok alerts |
 | `YOUTUBE_CHANNEL_IDS` | ❌ | Comma-separated YouTube channel IDs beginning with `UC` |
 | `YOUTUBE_DISCORD_CHANNEL_ID` | Conditional | Required when `YOUTUBE_CHANNEL_IDS` is set; receives YouTube alerts |
 | `YOUTUBE_DISCORD_MENTION` | ❌ | Optional ping for YouTube alerts |
@@ -167,7 +167,7 @@ The detector only reports broadcasts marked active now. Scheduled streams and Pr
 
 ### Separate Discord Routing
 
-TikTok alerts use `DISCORD_CHANNEL_ID` and `DISCORD_MENTION`. YouTube alerts use `YOUTUBE_DISCORD_CHANNEL_ID` and `YOUTUBE_DISCORD_MENTION`. Both routes share `DISCORD_BOT_TOKEN`.
+TikTok alerts use `DISCORD_CHANNEL_ID` and `TIKTOK_DISCORD_MENTION`. YouTube alerts use `YOUTUBE_DISCORD_CHANNEL_ID` and `YOUTUBE_DISCORD_MENTION`. Both routes share `DISCORD_BOT_TOKEN`.
 
 ### Changing the Polling Interval
 
