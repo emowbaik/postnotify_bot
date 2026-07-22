@@ -1,25 +1,31 @@
 /**
- * Shared TypeScript types for the TikTok Live Notifier Bot.
+ * Shared TypeScript types for PostNotify live monitoring.
  */
 
-/** Info about a TikTok live stream. */
+/** Info about an active TikTok or YouTube broadcast. */
 export interface LiveInfo {
+  /** Platform that supplied this live broadcast. */
+  platform: 'tiktok' | 'youtube';
   /** Whether the streamer is currently live. */
   isLive: true;
-  /** TikTok username (without @). */
+  /** TikTok username or YouTube channel ID, used for state deduplication. */
   username: string;
-  /** Unique room/session ID — used to deduplicate notifications. */
+  /** Human-readable creator or channel name. */
+  displayName: string;
+  /** Unique room/video ID — used to deduplicate notifications. */
   roomId: string;
-  /** Stream title as set by the streamer. */
+  /** Stream title as set by the creator. */
   title: string;
   /** Current number of live viewers (may be 0 if unavailable). */
   viewerCount: number;
   /** URL to the live stream thumbnail image. */
   thumbnailUrl: string | null;
-  /** URL to the streamer's TikTok profile picture. */
+  /** URL to the creator profile picture. */
   profilePicUrl: string | null;
-  /** Direct link to the TikTok live stream. */
+  /** Direct link to the active live stream. */
   liveUrl: string;
+  /** Direct link to the creator/channel profile. */
+  profileUrl: string;
   /** ISO timestamp of when the live started. */
   startedAt: string;
 }
@@ -36,7 +42,7 @@ export type LiveCheckResult = LiveInfo | NotLiveInfo;
 export interface BotState {
   /**
    * Set of session keys that have already been notified.
-   * Format: "username:roomId"
+   * Format: "platform:username:roomId"
    */
   activeLiveSessions: string[];
 }

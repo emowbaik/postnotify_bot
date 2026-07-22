@@ -49,13 +49,16 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
 
     return {
       isLive: true,
+      platform: 'tiktok',
       username,
+      displayName: username,
       roomId,
       title,
       viewerCount,
       thumbnailUrl,
       profilePicUrl,
       liveUrl,
+      profileUrl: `https://www.tiktok.com/@${encodeURIComponent(username)}`,
       startedAt,
     };
   } catch (error: unknown) {

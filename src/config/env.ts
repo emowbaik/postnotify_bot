@@ -15,6 +15,13 @@ function optionalEnv(key: string): string | undefined {
   return process.env[key] || undefined;
 }
 
+function splitCsv(value?: string): string[] {
+  return value
+    ?.split(',')
+    .map((item) => item.trim())
+    .filter(Boolean) ?? [];
+}
+
 export const env = {
   /** Discord Bot Token (Bot MTIz...) */
   discordBotToken: requireEnv('DISCORD_BOT_TOKEN'),
@@ -36,6 +43,18 @@ export const env = {
    * Example: "<@&123456789>" or "@everyone"
    */
   discordMention: optionalEnv('DISCORD_MENTION'),
+
+  /**
+   * Comma-separated list of YouTube channel IDs (`UC...`) to monitor.
+   * Empty or absent disables YouTube monitoring.
+   */
+  youtubeChannelIds: splitCsv(optionalEnv('YOUTUBE_CHANNEL_IDS')),
+
+  /** Discord channel used only for YouTube live notifications. */
+  youtubeDiscordChannelId: optionalEnv('YOUTUBE_DISCORD_CHANNEL_ID'),
+
+  /** Optional role/user/everyone mention for YouTube notifications. */
+  youtubeDiscordMention: optionalEnv('YOUTUBE_DISCORD_MENTION'),
 
   /**
    * GitHub PAT used to self-trigger the workflow loop.

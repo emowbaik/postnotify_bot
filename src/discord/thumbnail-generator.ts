@@ -1,5 +1,5 @@
 /**
- * TikTok Live Landscape Thumbnail Generator
+ * Live Landscape Thumbnail Generator
  *
  * Output:
  * - Ukuran tetap 1280×720
@@ -28,7 +28,10 @@ const POSTER_TOP = 75;
 
 const AVATAR_SIZE = 88;
 
-const ACCENT_COLOR = '#FE2C55';
+const PLATFORM_ACCENT_COLOR = {
+  tiktok: '#FE2C55',
+  youtube: '#FF0033',
+} as const;
 
 const MAX_REMOTE_IMAGE_SIZE =
   15 * 1024 * 1024;
@@ -42,7 +45,8 @@ const IMAGE_DOWNLOAD_TIMEOUT = 10_000;
 export async function generateLivePreview(
   info: LiveInfo
 ): Promise<Buffer> {
-  const username = normalizeUsername(info.username);
+  const displayName = displayCreatorName(info);
+  const accentColor = platformAccentColor(info);
 
   const thumbnailBuffer = await downloadImage(info.thumbnailUrl);
   const profileBuffer = await downloadImage(info.profilePicUrl);
@@ -53,17 +57,17 @@ export async function generateLivePreview(
    * Jika keduanya gagal, gunakan background fallback.
    */
   const backgroundSource =
-    thumbnailBuffer ?? profileBuffer ?? createFallbackBackground();
+    thumbnailBuffer ?? profileBuffer ?? createFallbackBackground(accentColor);
 
   const background = await createBackground(backgroundSource);
 
   const poster = thumbnailBuffer
     ? await createRoundedPoster(thumbnailBuffer)
-    : createFallbackPoster(username);
+    : createFallbackPoster(displayName, info);
 
   const avatar = profileBuffer
     ? await createCircularAvatar(profileBuffer)
-    : createFallbackAvatar(username);
+    : createFallbackAvatar(displayName, accentColor);
 
   const finalImage = await sharp(background)
     .composite([
@@ -97,18 +101,18 @@ async function createBackground(source: Buffer): Promise<Buffer> {
     .toBuffer();
 }
 
-function createFallbackBackground(): Buffer {
+function createFallbackBackground(accentColor: string): Buffer {
   return Buffer.from(`
     <svg width="${CANVAS_WIDTH}" height="${CANVAS_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <linearGradient id="fallbackBackground" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stop-color="#07090F"/>
           <stop offset="55%" stop-color="#171A24"/>
-          <stop offset="100%" stop-color="${ACCENT_COLOR}"/>
+          <stop offset="100%" stop-color="${accentColor}"/>
         </linearGradient>
         <radialGradient id="glow" cx="85%" cy="35%" r="65%">
-          <stop offset="0%" stop-color="${ACCENT_COLOR}" stop-opacity="0.45"/>
-          <stop offset="100%" stop-color="${ACCENT_COLOR}" stop-opacity="0"/>
+          <stop offset="0%" stop-color="${accentColor}" stop-opacity="0.45"/>
+          <stop offset="100%" stop-color="${accentColor}" stop-opacity="0"/>
         </radialGradient>
       </defs>
       <rect width="${CANVAS_WIDTH}" height="${CANVAS_HEIGHT}" fill="url(#fallbackBackground)"/>
@@ -159,14 +163,16 @@ async function createRoundedPoster(source: Buffer): Promise<Buffer> {
     .toBuffer();
 }
 
-function createFallbackPoster(username: string): Buffer {
-  const initial = escapeXml(username.charAt(0).toUpperCase() || 'L');
+function createFallbackPoster(displayName: string, info: LiveInfo): Buffer {
+  const initial = escapeXml(displayName.charAt(0).toUpperCase() || 'L');
+  const accentColor = platformAccentColor(info);
+  const platform = escapeXml(`${platformLabel(info).toUpperCase()} LIVE`);
 
   return Buffer.from(`
     <svg width="${POSTER_WIDTH}" height="${POSTER_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <linearGradient id="posterGradient" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="${ACCENT_COLOR}"/>
+          <stop offset="0%" stop-color="${accentColor}"/>
           <stop offset="100%" stop-color="#11141D"/>
         </linearGradient>
         <radialGradient id="posterGlow" cx="50%" cy="40%" r="60%">
@@ -180,7 +186,7 @@ function createFallbackPoster(username: string): Buffer {
       <text x="50%" y="${POSTER_HEIGHT / 2 + 5}" text-anchor="middle" fill="#ffffff"
         font-family="Arial, DejaVu Sans, sans-serif" font-size="118" font-weight="700">${initial}</text>
       <text x="50%" y="${POSTER_HEIGHT - 70}" text-anchor="middle" fill="#ffffff" fill-opacity="0.80"
-        font-family="Arial, DejaVu Sans, sans-serif" font-size="24" font-weight="700" letter-spacing="2">TIKTOK LIVE</text>
+        font-family="Arial, DejaVu Sans, sans-serif" font-size="24" font-weight="700" letter-spacing="2">${platform}</text>
     </svg>
   `);
 }
@@ -223,12 +229,12 @@ async function createCircularAvatar(source: Buffer): Promise<Buffer> {
     .toBuffer();
 }
 
-function createFallbackAvatar(username: string): Buffer {
-  const initial = escapeXml(username.charAt(0).toUpperCase() || 'L');
+function createFallbackAvatar(displayName: string, accentColor: string): Buffer {
+  const initial = escapeXml(displayName.charAt(0).toUpperCase() || 'L');
 
   return Buffer.from(`
     <svg width="${AVATAR_SIZE}" height="${AVATAR_SIZE}" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="${AVATAR_SIZE / 2}" cy="${AVATAR_SIZE / 2}" r="${AVATAR_SIZE / 2}" fill="${ACCENT_COLOR}"/>
+      <circle cx="${AVATAR_SIZE / 2}" cy="${AVATAR_SIZE / 2}" r="${AVATAR_SIZE / 2}" fill="${accentColor}"/>
       <text x="${AVATAR_SIZE / 2}" y="59" text-anchor="middle" fill="#ffffff"
         font-family="Arial, DejaVu Sans, sans-serif" font-size="44" font-weight="700">${initial}</text>
     </svg>
@@ -240,15 +246,18 @@ function createFallbackAvatar(username: string): Buffer {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function createTextOverlay(info: LiveInfo): Buffer {
-  const username = normalizeUsername(info.username);
-  const rawTitle = info.title?.trim() || `${username} sedang melakukan siaran langsung`;
+  const creatorName = displayCreatorName(info);
+  const rawTitle = info.title?.trim() || `${creatorName} sedang melakukan siaran langsung`;
   const titleLines = wrapText(rawTitle, 27, 2);
 
   const firstTitleLine = escapeXml(titleLines[0] ?? '');
   const secondTitleLine = escapeXml(titleLines[1] ?? '');
   const viewers = escapeXml(formatViewerCount(info.viewerCount));
   const duration = escapeXml(formatLiveDuration(info.startedAt));
-  const escapedUsername = escapeXml(username);
+  const escapedCreatorName = escapeXml(creatorName);
+  const platform = platformLabel(info);
+  const creatorRole = escapeXml(platform === 'YouTube' ? 'YouTube Live Channel' : 'TikTok Live Creator');
+  const accentColor = platformAccentColor(info);
 
   return Buffer.from(`
     <svg width="${CANVAS_WIDTH}" height="${CANVAS_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
@@ -257,12 +266,12 @@ function createTextOverlay(info: LiveInfo): Buffer {
 
       <!-- Username -->
       <text x="180" y="102" fill="#ffffff"
-        font-family="Arial, DejaVu Sans, sans-serif" font-size="28" font-weight="700">@${escapedUsername}</text>
+        font-family="Arial, DejaVu Sans, sans-serif" font-size="28" font-weight="700">${escapedCreatorName}</text>
       <text x="180" y="134" fill="#ffffff" fill-opacity="0.58"
-        font-family="Arial, DejaVu Sans, sans-serif" font-size="19" font-weight="500">TikTok Live Creator</text>
+        font-family="Arial, DejaVu Sans, sans-serif" font-size="19" font-weight="500">${creatorRole}</text>
 
       <!-- Live badge -->
-      <rect x="72" y="184" width="226" height="52" rx="26" fill="${ACCENT_COLOR}"/>
+      <rect x="72" y="184" width="226" height="52" rx="26" fill="${accentColor}"/>
       <circle cx="102" cy="210" r="8" fill="#ffffff"/>
       <text x="124" y="218" fill="#ffffff"
         font-family="Arial, DejaVu Sans, sans-serif" font-size="20" font-weight="700" letter-spacing="1">LIVE SEKARANG</text>
@@ -299,10 +308,10 @@ function createTextOverlay(info: LiveInfo): Buffer {
       <text x="570" y="548" fill="#ffffff" fill-opacity="0.50"
         font-family="Arial, DejaVu Sans, sans-serif" font-size="17" font-weight="700" letter-spacing="1">PLATFORM</text>
       <text x="570" y="588" fill="#ffffff"
-        font-family="Arial, DejaVu Sans, sans-serif" font-size="30" font-weight="700">TikTok</text>
+        font-family="Arial, DejaVu Sans, sans-serif" font-size="30" font-weight="700">${platform}</text>
 
       <!-- Bottom CTA -->
-      <circle cx="82" cy="654" r="6" fill="${ACCENT_COLOR}"/>
+      <circle cx="82" cy="654" r="6" fill="${accentColor}"/>
       <text x="102" y="661" fill="#ffffff" fill-opacity="0.65"
         font-family="Arial, DejaVu Sans, sans-serif" font-size="20" font-weight="500">Tonton sekarang sebelum siaran berakhir</text>
     </svg>
@@ -359,6 +368,19 @@ function normalizeUsername(username: string): string {
   return username.trim().replace(/^@+/, '') || 'creator';
 }
 
+function displayCreatorName(info: LiveInfo): string {
+  const name = info.displayName.trim() || normalizeUsername(info.username);
+  return info.platform === 'tiktok' ? `@${normalizeUsername(name)}` : name;
+}
+
+function platformLabel(info: LiveInfo): 'TikTok' | 'YouTube' {
+  return info.platform === 'youtube' ? 'YouTube' : 'TikTok';
+}
+
+function platformAccentColor(info: LiveInfo): string {
+  return PLATFORM_ACCENT_COLOR[info.platform];
+}
+
 function formatViewerCount(viewerCount: number): string {
   if (!Number.isFinite(viewerCount) || viewerCount < 0) return '—';
   return new Intl.NumberFormat('id-ID').format(Math.floor(viewerCount));
@@ -379,7 +401,7 @@ function formatLiveDuration(startedAt: string): string {
 
 function wrapText(input: string, maximumCharacters: number, maximumLines: number): string[] {
   const cleanInput = input.replace(/\s+/g, ' ').trim();
-  if (!cleanInput) return ['TikTok Live'];
+  if (!cleanInput) return ['Live Now'];
 
   const words = cleanInput.split(' ');
   const lines: string[] = [];

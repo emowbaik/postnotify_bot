@@ -47,14 +47,28 @@ export function saveState(state: BotState): void {
   writeFileSync(STATE_FILE, JSON.stringify(state, null, 2) + '\n', 'utf8');
 }
 
-/** Build the deduplication key for a live session. */
-export function buildSessionKey(username: string, roomId: string): string {
+/** Build a platform-prefixed deduplication key for a live session. */
+export function buildSessionKey(
+  platform: 'tiktok' | 'youtube',
+  username: string,
+  roomId: string
+): string {
+  return `${platform}:${username}:${roomId}`;
+}
+
+/** Existing TikTok keys from earlier versions remain valid until stream end. */
+export function buildLegacyTikTokSessionKey(username: string, roomId: string): string {
   return `${username}:${roomId}`;
 }
 
 /** Check whether a live session has already been notified. */
 export function hasNotified(state: BotState, sessionKey: string): boolean {
-  return state.activeLiveSessions.includes(sessionKey);
+  if (state.activeLiveSessions.includes(sessionKey)) return true;
+
+  const legacyTikTokKey = sessionKey.startsWith('tiktok:')
+    ? sessionKey.slice('tiktok:'.length)
+    : null;
+  return legacyTikTokKey !== null && state.activeLiveSessions.includes(legacyTikTokKey);
 }
 
 /** Mark a session as notified. */
@@ -73,6 +87,6 @@ export function pruneOfflineSessions(
   activeSessionKeys: string[]
 ): void {
   state.activeLiveSessions = state.activeLiveSessions.filter((key) =>
-    activeSessionKeys.includes(key)
+    activeSessionKeys.includes(key) || activeSessionKeys.includes(`tiktok:${key}`)
   );
 }

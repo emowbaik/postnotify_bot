@@ -1,5 +1,5 @@
 /**
- * Discord TikTok Live Notification Sender
+ * Discord live notification sender for TikTok and YouTube.
  *
  * Fitur:
  * - Mengirim notifikasi menggunakan Discord Bot REST API
@@ -13,9 +13,10 @@ import type { LiveInfo } from '../types.js';
 import { generateLivePreview } from './thumbnail-generator.js';
 
 const DISCORD_API = 'https://discord.com/api/v10';
-
-/** Warna aksen TikTok: #FE2C55 */
-const EMBED_COLOR = 0xfe2c55;
+const PLATFORM_COLOR = {
+  tiktok: 0xfe2c55,
+  youtube: 0xff0033,
+} as const;
 
 /**
  * Mengirim notifikasi live ke channel Discord.
@@ -39,7 +40,7 @@ export async function sendLiveNotification(
       {
         id: 0,
         filename: 'live-preview.jpg',
-        description: `Preview live TikTok @${normalizeUsername(liveInfo.username)}`,
+        description: `Preview live ${platformLabel(liveInfo)} ${displayCreatorName(liveInfo)}`,
       },
     ],
   };
@@ -66,7 +67,9 @@ export async function sendLiveNotification(
     throw new Error(`Discord API error ${response.status}: ${responseBody}`);
   }
 
-  console.log(`[Discord] ✅ Notification sent for @${normalizeUsername(liveInfo.username)}`);
+  console.log(
+    `[Discord] ✅ ${platformLabel(liveInfo)} notification sent for ${displayCreatorName(liveInfo)}`
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -74,9 +77,8 @@ export async function sendLiveNotification(
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildContent(info: LiveInfo, mention?: string): string {
-  const username = normalizeUsername(info.username);
   const mentionPrefix = mention?.trim() ? `${mention.trim()} ` : '';
-  return `${mentionPrefix}🔴 **@${username} sedang LIVE di TikTok!**`;
+  return `${mentionPrefix}🔴 **${displayCreatorName(info)} sedang LIVE di ${platformLabel(info)}!**`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -84,15 +86,15 @@ function buildContent(info: LiveInfo, mention?: string): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildEmbed(info: LiveInfo): DiscordEmbed {
-  const username = normalizeUsername(info.username);
-  const profileUrl = buildTikTokProfileUrl(username);
-  const streamTitle = info.title?.trim() || `${username} sedang melakukan siaran langsung`;
+  const creatorName = displayCreatorName(info);
+  const platform = platformLabel(info);
+  const streamTitle = info.title?.trim() || `${creatorName} sedang melakukan siaran langsung`;
 
   return {
-    color: EMBED_COLOR,
+    color: PLATFORM_COLOR[info.platform],
     author: {
-      name: `TikTok LIVE • @${username}`,
-      url: profileUrl,
+      name: `${platform} LIVE • ${creatorName}`,
+      url: info.profileUrl,
       ...(isHttpUrl(info.profilePicUrl) && { icon_url: info.profilePicUrl }),
     },
     title: truncate(streamTitle, 256),
@@ -100,15 +102,15 @@ function buildEmbed(info: LiveInfo): DiscordEmbed {
     description: [
       '🔴 **LIVE SEKARANG**',
       '',
-      `**@${username}** sedang melakukan siaran langsung.`,
+      `**${creatorName}** sedang melakukan siaran langsung.`,
       'Masuk sekarang sebelum live berakhir.',
       '',
       `👁️ **Penonton:** ${formatViewerCount(info.viewerCount)}`,
       `⏱️ **Dimulai:** ${formatDiscordTimestamp(info.startedAt)}`,
-      '📱 **Platform:** TikTok Live',
+      `📱 **Platform:** ${platform} Live`,
     ].join('\n'),
     image: { url: 'attachment://live-preview.jpg' },
-    footer: { text: 'PostNotify • TikTok Live Alert' },
+    footer: { text: `PostNotify • ${platform} Live Alert` },
     timestamp: new Date().toISOString(),
   };
 }
@@ -118,8 +120,6 @@ function buildEmbed(info: LiveInfo): DiscordEmbed {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildComponents(info: LiveInfo): DiscordActionRow[] {
-  const username = normalizeUsername(info.username);
-
   return [
     {
       type: 1,
@@ -134,8 +134,8 @@ function buildComponents(info: LiveInfo): DiscordActionRow[] {
         {
           type: 2,
           style: 5,
-          label: 'Lihat Profil',
-          url: buildTikTokProfileUrl(username),
+          label: profileButtonLabel(info),
+          url: info.profileUrl,
           emoji: { name: '👤' },
         },
       ],
@@ -172,8 +172,17 @@ function normalizeUsername(username: string): string {
   return username.trim().replace(/^@+/, '');
 }
 
-function buildTikTokProfileUrl(username: string): string {
-  return `https://www.tiktok.com/@${encodeURIComponent(username)}`;
+function displayCreatorName(info: LiveInfo): string {
+  const name = info.displayName.trim() || normalizeUsername(info.username);
+  return info.platform === 'tiktok' ? `@${normalizeUsername(name)}` : name;
+}
+
+function profileButtonLabel(info: LiveInfo): 'Lihat Profil' | 'Lihat Channel' {
+  return info.platform === 'youtube' ? 'Lihat Channel' : 'Lihat Profil';
+}
+
+function platformLabel(info: LiveInfo): 'TikTok' | 'YouTube' {
+  return info.platform === 'youtube' ? 'YouTube' : 'TikTok';
 }
 
 function formatViewerCount(viewerCount: number): string {
@@ -201,7 +210,9 @@ function validateNotificationInput(botToken: string, channelId: string, info: Li
   if (!botToken?.trim()) throw new Error('Discord bot token tidak boleh kosong.');
   if (!channelId?.trim()) throw new Error('Discord channel ID tidak boleh kosong.');
   if (!info.username?.trim()) throw new Error('LiveInfo.username tidak boleh kosong.');
+  if (!info.displayName?.trim()) throw new Error('LiveInfo.displayName tidak boleh kosong.');
   if (!isHttpUrl(info.liveUrl)) throw new Error('LiveInfo.liveUrl bukan URL HTTP/HTTPS yang valid.');
+  if (!isHttpUrl(info.profileUrl)) throw new Error('LiveInfo.profileUrl bukan URL HTTP/HTTPS yang valid.');
 }
 
 function isHttpUrl(value?: string | null): value is string {

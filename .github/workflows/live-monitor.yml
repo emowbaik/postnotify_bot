@@ -1,4 +1,4 @@
-name: TikTok Live Monitor
+name: PostNotify Live Monitor
 
 on:
   # ── Manual start (first time / restart after loop dies) ──────────────────
@@ -29,10 +29,13 @@ jobs:
       actions: write    # needed to delete old workflow runs
 
     env:
-      DISCORD_BOT_TOKEN:  ${{ secrets.DISCORD_BOT_TOKEN }}
-      DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID }}
-      DISCORD_MENTION:    ${{ secrets.DISCORD_MENTION }}
-      TIKTOK_USERNAMES:   ${{ secrets.TIKTOK_USERNAMES }}
+      DISCORD_BOT_TOKEN:          ${{ secrets.DISCORD_BOT_TOKEN }}
+      DISCORD_CHANNEL_ID:         ${{ secrets.DISCORD_CHANNEL_ID }}
+      DISCORD_MENTION:            ${{ secrets.DISCORD_MENTION }}
+      TIKTOK_USERNAMES:           ${{ secrets.TIKTOK_USERNAMES }}
+      YOUTUBE_CHANNEL_IDS:        ${{ secrets.YOUTUBE_CHANNEL_IDS }}
+      YOUTUBE_DISCORD_CHANNEL_ID: ${{ secrets.YOUTUBE_DISCORD_CHANNEL_ID }}
+      YOUTUBE_DISCORD_MENTION:    ${{ secrets.YOUTUBE_DISCORD_MENTION }}
 
     steps:
       # ── 1. Checkout ──────────────────────────────────────────────────────
@@ -55,7 +58,7 @@ jobs:
         run: bun install --frozen-lockfile || bun install
 
       # ── 4. Run the live check & notify ───────────────────────────────────
-      - name: Check TikTok live status & send notifications
+      - name: Check live status & send notifications
         run: bun run src/app.ts
 
       # ── 5. Commit state.json if it changed ───────────────────────────────

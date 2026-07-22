@@ -1,7 +1,7 @@
 {
   "name": "postnotify-bot",
   "version": "1.0.0",
-  "description": "Discord bot that sends notifications when TikTok streamers go live, powered by GitHub Actions",
+  "description": "Discord bot that sends notifications when TikTok and YouTube creators go live, powered by GitHub Actions",
   "private": true,
   "type": "module",
   "scripts": {

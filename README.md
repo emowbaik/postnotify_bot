@@ -1,45 +1,45 @@
 # postnotify_bot
 
-Automated Discord notification bot that sends rich alerts when TikTok streamers go live. Runs 24/7 via a **GitHub Actions self-triggering loop** — no server, no cost.
+Automated Discord notification bot that sends rich alerts when TikTok creators or YouTube channels go live. Runs continuously through a **GitHub Actions self-triggering loop**—no dedicated server required.
 
 ---
 
 ## Features
 
-- 🔴 Automatic TikTok live detection (~5-minute polling interval)
-- 🖼️ Auto-generated landscape preview image (1280×720 — blurred background, avatar, title, stats)
-- 📨 Discord rich embed with viewer count, start time, and two action buttons
-- 🔕 Deduplication: no repeated notifications for the same live session
-- 🔒 Concurrency guard: only one workflow runs at a time, preventing duplicate sends
-- 💾 Persistent state via `state.json` committed back to the repository
-- 🧹 Auto-cleanup: old workflow runs are deleted automatically
-- 🔄 Keepalive: prevents GitHub from auto-disabling scheduled workflows after 60 days of inactivity
-- ♾️ Self-triggering loop — runs indefinitely without an external server
+- 🔴 Automatic TikTok and YouTube live detection (~5-minute polling interval)
+- ▶️ Active YouTube livestream and Premiere detection through unofficial internal web API data
+- 🧭 Separate Discord channel and mention routing for YouTube alerts
+- 🖼️ Platform-aware 1280×720 preview image with blurred background, avatar, title, and statistics
+- 📨 Discord rich embeds with viewer count, start time, platform, and action buttons
+- 🔕 Platform-prefixed session deduplication prevents repeated notifications for one broadcast
+- 🔒 Workflow concurrency guard prevents overlapping runs and duplicate sends
+- 💾 Persistent notification state through repository-backed `state.json`
+- 🧹 Automatic cleanup keeps only the latest workflow run
+- 🔄 Daily keepalive protects scheduled workflows from GitHub's 60-day inactivity disablement
+- ♾️ Self-triggering loop runs without an external scheduler or server
 
 ---
 
 ## How It Works
 
 ```text
-[workflow_dispatch or daily cron at 00:00 UTC]
+[manual dispatch or daily cron at 00:00 UTC]
         ↓
-  [Check TikTok live status for each configured streamer]
+[Check configured TikTok usernames and YouTube channel IDs in parallel]
         ↓
-  [If live and not yet notified for this session:]
+[Detect active TikTok lives, YouTube lives, and airing Premieres]
         ↓
-  [Generate 1280×720 JPEG preview image (Sharp)]
+[Ignore session if platform:creator:broadcast ID already exists in state]
         ↓
-  [Send Discord embed + upload preview via multipart FormData]
+[Generate platform-aware 1280×720 JPEG preview with Sharp]
         ↓
-  [Commit state.json to mark session as notified]
+[Route TikTok or YouTube embed to its configured Discord channel]
         ↓
-  [Delete old workflow runs (keep only the latest)]
+[Commit state.json, delete old runs, then sleep 300 seconds]
         ↓
-  [Sleep 300 seconds]
+[repository_dispatch triggers next run]
         ↓
-  [repository_dispatch → trigger next run]
-        ↓
-  [Loop continues ♾️]
+[Loop continues]
 ```
 
 ---
@@ -78,18 +78,27 @@ Go to your repository → **Settings → Secrets and variables → Actions → N
 
 | Secret | Required | Description |
 |--------|:--------:|-------------|
-| `DISCORD_BOT_TOKEN` | ✅ | Discord bot token from Step 2 |
-| `DISCORD_CHANNEL_ID` | ✅ | Target channel ID |
-| `TIKTOK_USERNAMES` | ✅ | Comma-separated TikTok usernames (without `@`) |
+| `DISCORD_BOT_TOKEN` | ✅ | Shared Discord bot token from Step 2 |
+| `DISCORD_CHANNEL_ID` | ✅ | Discord channel for TikTok alerts |
+| `TIKTOK_USERNAMES` | ✅ | Comma-separated TikTok usernames without `@` |
 | `LOOP_TOKEN` | ✅ | GitHub PAT from Step 3 |
-| `DISCORD_MENTION` | ❌ | Optional ping string — see examples below |
+| `DISCORD_MENTION` | ❌ | Optional ping for TikTok alerts |
+| `YOUTUBE_CHANNEL_IDS` | ❌ | Comma-separated YouTube channel IDs beginning with `UC` |
+| `YOUTUBE_DISCORD_CHANNEL_ID` | Conditional | Required when `YOUTUBE_CHANNEL_IDS` is set; receives YouTube alerts |
+| `YOUTUBE_DISCORD_MENTION` | ❌ | Optional ping for YouTube alerts |
 
-**`TIKTOK_USERNAMES` example:**
-```
-streamer1,streamer2,streamer3
+**Creator examples:**
+
+```text
+TIKTOK_USERNAMES=streamer1,streamer2,streamer3
+YOUTUBE_CHANNEL_IDS=UCxxxxxxxxxxxxxxxxxxxxxx,UCyyyyyyyyyyyyyyyyyyyyyy
 ```
 
-**`DISCORD_MENTION` examples:**
+Find a YouTube channel ID in the channel page source, an About-page URL, or through a channel ID lookup. Use the immutable `UC...` ID, not a handle such as `@creator`.
+
+YouTube monitoring activates only when both `YOUTUBE_CHANNEL_IDS` and `YOUTUBE_DISCORD_CHANNEL_ID` are present. TikTok configuration remains required.
+
+**Mention examples:**
 
 | Value | Effect |
 |-------|--------|
@@ -98,13 +107,13 @@ streamer1,streamer2,streamer3
 | `<@&ROLE_ID>` | Pings a specific role |
 | `<@USER_ID>` | Pings a specific user |
 
-If `DISCORD_MENTION` is not set, the notification is sent without any ping.
+Leave either mention secret unset to send that platform's notification without a ping.
 
 ### Step 5 — Enable GitHub Actions
 
 1. Go to the **Actions** tab in your repository
 2. Click **"I understand my workflows, go ahead and enable them"** if prompted
-3. Select **TikTok Live Monitor** → click **Run workflow** to start the loop
+3. Select **PostNotify Live Monitor** → click **Run workflow** to start the loop
 
 The loop runs automatically afterward. A daily cron at `00:00 UTC` acts as a safety net to restart the loop if it ever dies.
 
@@ -120,54 +129,49 @@ Alternatively, revoke the `LOOP_TOKEN` secret to permanently stop the loop.
 
 ---
 
-## Discord Notification Preview
+TikTok alert:
 
 ```text
-@BOT  🔴 @streamer123 sedang LIVE di TikTok!
-
-┌──────────────────────────────────────────────────┐
-│ TikTok LIVE • @streamer123              [avatar] │  ← author
-│                                                  │
-│ 📺 FLASH SALE EVERY HOUR                        │  ← stream title (clickable)
-│                                                  │
-│ 🔴 LIVE SEKARANG                                │
-│                                                  │
-│ @streamer123 sedang melakukan siaran langsung.   │
-│ Masuk sekarang sebelum live berakhir.            │
-│                                                  │
-│ 👁️ Penonton: 1.234                              │
-│ ⏱️ Dimulai: 14 minutes ago                      │
-│ 📱 Platform: TikTok Live                        │
-│                                                  │
-│ [Generated 1280×720 preview image]               │
-│                                                  │
-│ PostNotify • TikTok Live Alert  •  Today at ...  │
-├──────────────────────────────────────────────────┤
-│  📺 Tonton Live        👤 Lihat Profil           │  ← link buttons
-└──────────────────────────────────────────────────┘
+🔴 @streamer123 sedang LIVE di TikTok!
+TikTok LIVE • @streamer123
+📱 Platform: TikTok Live
+[📺 Tonton Live] [👤 Lihat Profil]
 ```
 
-The attached preview image contains: blurred live thumbnail as background, rounded portrait poster on the right, circular avatar + "LIVE SEKARANG" badge + title + viewer/duration statistics on the left.
+YouTube alert:
+
+```text
+🔴 Example Channel sedang LIVE di YouTube!
+YouTube LIVE • Example Channel
+📱 Platform: YouTube Live
+[📺 Tonton Live] [👤 Lihat Channel]
+```
+
+Both embeds upload a generated 1280×720 preview. TikTok uses its pink accent; YouTube uses its red accent. When a remote thumbnail or avatar is unavailable, the generator produces a local platform-aware fallback.
 
 ---
 
 ## Configuration
 
-All configuration is handled via **GitHub Secrets** — no `.env` file needed.
+All runtime configuration comes from **GitHub Secrets**; no `.env` file is required in Actions.
 
-### Adding or Removing Streamers
+### Changing Monitored Creators
 
-Edit the `TIKTOK_USERNAMES` secret in GitHub Actions Secrets:
+Update `TIKTOK_USERNAMES` or `YOUTUBE_CHANNEL_IDS` with comma-separated values. TikTok entries omit `@`; YouTube entries use channel IDs beginning with `UC`.
 
-```
-streamer1,streamer2,streamer3
-```
+### YouTube Detection
 
-Usernames without `@`, separated by commas.
+YouTube checks use the channel `/live` page and embedded `ytInitialData` first. If no active renderer is found, the bot performs one bounded Innertube `browse` request using the page's internal client key. No official YouTube API key or quota is required.
+
+The detector only reports broadcasts marked active now. Scheduled streams and Premieres that have not started are ignored. Viewer count or start time may be unavailable in unofficial responses; alerts still send with safe fallback values.
+
+### Separate Discord Routing
+
+TikTok alerts use `DISCORD_CHANNEL_ID` and `DISCORD_MENTION`. YouTube alerts use `YOUTUBE_DISCORD_CHANNEL_ID` and `YOUTUBE_DISCORD_MENTION`. Both routes share `DISCORD_BOT_TOKEN`.
 
 ### Changing the Polling Interval
 
-Edit `sleep 300` in `.github/workflows/live-monitor.yml`. Default is 300 seconds (5 minutes).
+Edit `sleep 300` in `.github/workflows/live-monitor.yml`. Default: 300 seconds (approximately 5 minutes).
 
 ---
 
@@ -184,12 +188,12 @@ This project includes [`liskin/gh-workflow-keepalive@v1`](https://github.com/lis
 
 **For forks:**
 - A newly forked repository may still require one manual enable
-- Go to **Actions → TikTok Live Monitor → Enable workflow**
+- Go to **Actions → PostNotify Live Monitor → Enable workflow**
 - After the first scheduled run, the keepalive job prevents automatic disabling
 
 If GitHub disables the workflow anyway:
 1. Open the **Actions** tab
-2. Select **TikTok Live Monitor**
+2. Select **PostNotify Live Monitor**
 3. Click **Enable workflow**
 4. Optionally click **Run workflow** once to confirm everything works
 
@@ -201,21 +205,23 @@ If GitHub disables the workflow anyway:
 postnotify_bot/
 ├── package.json                        # Dependencies and scripts
 ├── tsconfig.json                       # TypeScript configuration
-├── state.json                          # Persisted live session state (committed to repo)
+├── state.json                          # Persisted platform session keys
 ├── .github/
 │   └── workflows/
-│       └── live-monitor.yml            # Self-triggering loop + daily cron + keepalive
+│       └── live-monitor.yml            # Loop, cron, Discord secrets, and keepalive
 └── src/
-    ├── app.ts                          # Main runner — orchestrates all modules
-    ├── types.ts                        # TypeScript type definitions
-    ├── state.ts                        # State load/save/dedup logic
+    ├── app.ts                          # Multi-platform orchestration and routing
+    ├── types.ts                        # Shared live result and state types
+    ├── state.ts                        # State load, save, migration, and deduplication
     ├── config/
-    │   └── env.ts                      # Environment variable validation
+    │   └── env.ts                      # GitHub Actions environment validation
     ├── tiktok/
-    │   └── checkLive.ts               # TikTok live checker (fetchIsLive + webcast API)
+    │   └── checkLive.ts               # TikTok connector and webcast API detector
+    ├── youtube/
+    │   └── checkLive.ts               # YouTube page data and Innertube detector
     └── discord/
-        ├── sendEmbed.ts               # Discord notification sender (multipart FormData)
-        └── thumbnail-generator.ts     # 1280×720 JPEG preview generator (Sharp)
+        ├── sendEmbed.ts               # Platform-aware multipart Discord sender
+        └── thumbnail-generator.ts     # Platform-aware 1280×720 JPEG generator
 ```
 
 ---
@@ -232,13 +238,15 @@ Dependencies are installed automatically during workflow runs.
 
 ## ⚠️ Important Notes
 
-- **Unofficial API**: This bot uses `tiktok-live-connector` and TikTok's internal webcast API. TikTok may change their API at any time without notice.
-- **GitHub Actions minutes**: For **public** repositories, Actions minutes are unlimited. For **private** repositories, the free tier provides 2,000 minutes/month — at a 5-minute interval this bot consumes approximately 290 minutes/day.
-- **State management**: `state.json` is committed to the repository after each run to persist live session state across runs.
-- **Concurrency**: `cancel-in-progress: true` ensures only one workflow instance is active at a time, preventing race conditions and duplicate notifications.
+- **Unofficial APIs:** TikTok checks use `tiktok-live-connector` and internal webcast data. YouTube checks use public page data and unofficial Innertube endpoints. Either platform can change its payload without notice.
+- **YouTube availability:** GitHub Actions IP addresses may occasionally receive consent pages, throttling, or blocking. A failed channel check logs a warning instead of crashing the full run.
+- **Viewer metadata:** YouTube viewer count and exact start time are best-effort because unofficial payloads do not always expose them.
+- **GitHub Actions minutes:** Public repositories receive unlimited standard Actions minutes. Private repository quotas depend on the account plan; a continuously sleeping loop consumes billed runner time.
+- **State management:** `state.json` stores `platform:creator:broadcast` keys and is committed after each run.
+- **Concurrency:** `cancel-in-progress: true` allows only one active workflow in the `live-monitor` group.
 
 ---
 
 ## Disclaimer
 
-This project uses unofficial TikTok APIs. Use at your own risk. The author is not responsible for any consequences arising from its use. Ensure your usage complies with TikTok's Terms of Service.
+This project depends on unofficial TikTok and YouTube interfaces. Use it at your own risk, follow both platforms' Terms of Service, and expect detector maintenance when upstream payloads change.
