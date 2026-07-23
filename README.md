@@ -79,12 +79,12 @@ Go to your repository → **Settings → Secrets and variables → Actions → N
 | Secret | Required | Description |
 |--------|:--------:|-------------|
 | `DISCORD_BOT_TOKEN` | ✅ | Shared Discord bot token from Step 2 |
-| `TIKTOK_DISCORD_CHANNEL_ID` | ✅ | Discord channel for TikTok alerts |
-| `TIKTOK_USERNAMES` | ✅ | Comma-separated TikTok usernames without `@` |
 | `LOOP_TOKEN` | ✅ | GitHub PAT from Step 3 |
+| `TIKTOK_USERNAMES` | ❌ | Comma-separated TikTok usernames without `@`; enables TikTok monitoring |
+| `TIKTOK_DISCORD_CHANNEL_ID` | Conditional | Required when `TIKTOK_USERNAMES` is set |
 | `TIKTOK_DISCORD_MENTION` | ❌ | Optional ping for TikTok alerts |
-| `YOUTUBE_CHANNEL_IDS` | ❌ | Comma-separated YouTube channel IDs beginning with `UC` |
-| `YOUTUBE_DISCORD_CHANNEL_ID` | Conditional | Required when `YOUTUBE_CHANNEL_IDS` is set; receives YouTube alerts |
+| `YOUTUBE_CHANNEL_IDS` | ❌ | Comma-separated YouTube channel IDs beginning with `UC`; enables YouTube monitoring |
+| `YOUTUBE_DISCORD_CHANNEL_ID` | Conditional | Required when `YOUTUBE_CHANNEL_IDS` is set |
 | `YOUTUBE_DISCORD_MENTION` | ❌ | Optional ping for YouTube alerts |
 
 **Creator examples:**
@@ -94,9 +94,27 @@ TIKTOK_USERNAMES=streamer1,streamer2,streamer3
 YOUTUBE_CHANNEL_IDS=UCxxxxxxxxxxxxxxxxxxxxxx,UCyyyyyyyyyyyyyyyyyyyyyy
 ```
 
-Find a YouTube channel ID in the channel page source, an About-page URL, or through a channel ID lookup. Use the immutable `UC...` ID, not a handle such as `@creator`.
+At least one complete platform pair is required. Supported modes:
 
-YouTube monitoring activates only when both `YOUTUBE_CHANNEL_IDS` and `YOUTUBE_DISCORD_CHANNEL_ID` are present. TikTok configuration requires `TIKTOK_USERNAMES`, `TIKTOK_DISCORD_CHANNEL_ID`, and `DISCORD_BOT_TOKEN`.
+```text
+TikTok only:  TIKTOK_USERNAMES + TIKTOK_DISCORD_CHANNEL_ID
+YouTube only: YOUTUBE_CHANNEL_IDS + YOUTUBE_DISCORD_CHANNEL_ID
+Both:         configure both pairs
+```
+
+YouTube-only example:
+
+```text
+DISCORD_BOT_TOKEN=your_bot_token
+LOOP_TOKEN=your_github_pat
+YOUTUBE_CHANNEL_IDS=UCxxxxxxxxxxxxxxxxxxxxxx
+YOUTUBE_DISCORD_CHANNEL_ID=123456789012345678
+YOUTUBE_DISCORD_MENTION=<@&123456789012345678>
+```
+
+For YouTube-only mode, leave `TIKTOK_USERNAMES`, `TIKTOK_DISCORD_CHANNEL_ID`, and `TIKTOK_DISCORD_MENTION` unset.
+
+Find a YouTube channel ID in the channel page source, an About-page URL, or through a channel ID lookup. Use the immutable `UC...` ID, not a handle such as `@creator`.
 
 **Mention examples:**
 
@@ -157,7 +175,7 @@ All runtime configuration comes from **GitHub Secrets**; no `.env` file is requi
 
 ### Changing Monitored Creators
 
-Update `TIKTOK_USERNAMES` or `YOUTUBE_CHANNEL_IDS` with comma-separated values. TikTok entries omit `@`; YouTube entries use channel IDs beginning with `UC`.
+Update `TIKTOK_USERNAMES` or `YOUTUBE_CHANNEL_IDS` with comma-separated values. TikTok entries omit `@`; YouTube entries use channel IDs beginning with `UC`. Each platform runs independently when its creator list and Discord channel are both configured. An incomplete platform pair is disabled with a warning; startup fails when neither platform has a complete pair.
 
 ### YouTube Detection
 

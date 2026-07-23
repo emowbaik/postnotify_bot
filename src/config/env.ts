@@ -26,17 +26,15 @@ export const env = {
   /** Discord Bot Token (Bot MTIz...) */
   discordBotToken: requireEnv('DISCORD_BOT_TOKEN'),
 
-  /** Discord channel ID where TikTok notifications are sent */
-  tiktokDiscordChannelId: requireEnv('TIKTOK_DISCORD_CHANNEL_ID'),
+  /** Optional Discord channel ID for TikTok notifications. */
+  tiktokDiscordChannelId: optionalEnv('TIKTOK_DISCORD_CHANNEL_ID'),
 
   /**
-   * Comma-separated list of TikTok usernames to monitor (without @).
-   * Example: "streamer1,streamer2,streamer3"
+   * Comma-separated TikTok usernames (without @).
+   * Empty or absent disables TikTok monitoring.
    */
-  tiktokUsernames: requireEnv('TIKTOK_USERNAMES')
-    .split(',')
-    .map((u) => u.trim().replace(/^@/, ''))
-    .filter(Boolean),
+  tiktokUsernames: splitCsv(optionalEnv('TIKTOK_USERNAMES'))
+    .map((username) => username.replace(/^@/, '')),
 
   /**
    * Optional: Discord role/user mention prepended to TikTok notifications.
