@@ -58,7 +58,8 @@ jobs:
         run: bun install --frozen-lockfile || bun install
 
       - name: Debug YouTube detector
-        run: bun -e "import { checkYouTubeLive } from './src/youtube/checkLive.ts'; console.log(await checkYouTubeLive('UCQ_KVW70OcLVo9nsnGgSiQw'))"
+        run: |
+          bun -e "import { checkYouTubeLive } from './src/youtube/checkLive.ts'; console.log(await checkYouTubeLive('UCQ_KVW70OcLVo9nsnGgSiQw'))"
 
       # ── 4. Run the live check & notify ───────────────────────────────────
       - name: Check live status & send notifications
