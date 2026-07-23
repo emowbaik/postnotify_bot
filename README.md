@@ -115,6 +115,11 @@ YOUTUBE_DISCORD_MENTION=<@&123456789012345678>
 For YouTube-only mode, leave `TIKTOK_USERNAMES`, `TIKTOK_DISCORD_CHANNEL_ID`, and `TIKTOK_DISCORD_MENTION` unset.
 
 Find a YouTube channel ID in the channel page source, an About-page URL, or through a channel ID lookup. Use the immutable `UC...` ID, not a handle such as `@creator`.
+<img width="1102" height="563" alt="image" src="https://github.com/user-attachments/assets/73808982-79c1-4db3-a316-22fc669e052b" />
+<img width="444" height="355" alt="image" src="https://github.com/user-attachments/assets/09ba8f1d-f366-4124-8827-06d0857ea3fc" />
+
+
+
 
 **Mention examples:**
 
