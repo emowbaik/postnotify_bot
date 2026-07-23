@@ -61,6 +61,14 @@ jobs:
         run: |
           bun -e "import { checkYouTubeLive } from './src/youtube/checkLive.ts'; console.log(await checkYouTubeLive('UCQ_KVW70OcLVo9nsnGgSiQw'))"
 
+      - name: Debug YouTube channel hash
+        run: |
+          bun -e "const id = process.env.YOUTUBE_CHANNEL_IDS.trim(); const hash = new Bun.CryptoHasher('sha256').update(id).digest('hex'); console.log({ length: id.length, hash });"
+
+      - name: Debug YouTube detector literal
+        run: |
+          bun -e "import { checkYouTubeLive } from './src/youtube/checkLive.ts'; console.log(await checkYouTubeLive('UCQ_KVW70OcLVo9nsnGgSiQw'))"
+
       # ── 4. Run the live check & notify ───────────────────────────────────
       - name: Check live status & send notifications
         run: bun run src/app.ts
