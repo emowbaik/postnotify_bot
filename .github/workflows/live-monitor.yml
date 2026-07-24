@@ -73,13 +73,17 @@ jobs:
         run: |
           bun -e "
             const id = process.env.YOUTUBE_CHANNEL_IDS.trim();
+            const video = 'VAlMDl00mYY';
             const url = \`https://www.youtube.com/channel/\${id}/live\`;
+      
             const response = await fetch(url, {
               headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
+                'Accept': 'text/html',
                 'Accept-Language': 'en-US,en;q=0.9'
               }
             });
+      
             const html = await response.text();
             console.log({
               status: response.status,
@@ -87,7 +91,8 @@ jobs:
               length: html.length,
               hasInitialData: html.includes('ytInitialData'),
               hasPlayerResponse: html.includes('ytInitialPlayerResponse'),
-              hasVideoId: html.includes('jW7lroVRPcg'),
+              hasVideoId: html.includes(video),
+              hasWatchUrl: html.includes('/watch?v=' + video),
               hasConsent: /consent\.youtube|Before you continue/i.test(html),
               hasChallenge: /unusual traffic|captcha/i.test(html),
               title: html.match(/<title>([^<]*)<\/title>/i)?.[1]
