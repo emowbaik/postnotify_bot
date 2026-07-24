@@ -190,10 +190,13 @@ async function findWatchPageLive(
   playerData: JsonObject | null,
   pageHtml: string
 ): Promise<YouTubeLiveCandidate | null> {
-  for (const videoId of extractWatchVideoIds(pageData, playerData, pageHtml)) {
+  const watchCandidates = extractWatchVideoIds(pageData, playerData, pageHtml);
+  console.log(`[YouTube:watch-fallback] candidates: ${JSON.stringify(watchCandidates)}`);
+  for (const videoId of watchCandidates) {
     try {
       const watchUrl = `${YOUTUBE_ORIGIN}/watch?v=${encodeURIComponent(videoId)}`;
       const watchHtml = await fetchText(watchUrl, 'text/html');
+      console.log(`[YouTube:watch-fallback] ${videoId} length=${watchHtml.length} rawIsLive=`+/\"isLive\"\s*:\s*true/.test(watchHtml)+` rawIsLiveContent=`+/\"isLiveContent\"\s*:\s*true/.test(watchHtml));
       const watchPlayerData = extractInitialPlayerResponse(watchHtml);
       const candidate = watchPlayerData ? findActivePlayerLive(watchPlayerData) : null;
       if (candidate) return candidate;
