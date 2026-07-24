@@ -59,7 +59,7 @@ export async function checkYouTubeLive(channelId: string): Promise<LiveCheckResu
       return toLiveInfo(normalizedChannelId, browseCandidate);
     }
 
-    const watchCandidate = await findWatchPageLive(pageData, playerData, pageHtml);
+    const watchCandidate = await findWatchPageLive(pageData, playerData, pageHtml, normalizedChannelId);
     if (watchCandidate) {
       return toLiveInfo(normalizedChannelId, watchCandidate);
     }
@@ -188,7 +188,8 @@ function extractWatchVideoIds(
 async function findWatchPageLive(
   pageData: JsonObject | null,
   playerData: JsonObject | null,
-  pageHtml: string
+  pageHtml: string,
+  channelId: string
 ): Promise<YouTubeLiveCandidate | null> {
   for (const videoId of extractWatchVideoIds(pageData, playerData, pageHtml)) {
     try {
@@ -207,12 +208,14 @@ async function findWatchPageLive(
         // Extract richer metadata from channel page data if available.
         const channelPageCandidate = pageData ? findActiveLive(pageData) : null;
         const channelName = channelPageCandidate?.channelName
+          ?? extractChannelNameFromHtml(watchHtml)
           ?? extractChannelNameFromHtml(pageHtml)
-          ?? 'YouTube channel';
+          ?? channelId;
         const title = channelPageCandidate?.title
-          ?? watchHtml.match(/<title>([^<]*)<\/title>/i)?.[1]?.replace(/ - YouTube$/, '').trim()
+          ?? extractTitleFromHtml(watchHtml)
           ?? 'YouTube Live';
-        const viewerCount = channelPageCandidate?.viewerCount ?? 0;
+        const viewerCount = channelPageCandidate?.viewerCount
+          ?? extractViewerCountFromHtml(watchHtml);
         const startedAt = channelPageCandidate?.startedAt ?? new Date().toISOString();
         const thumbnailUrl = channelPageCandidate?.thumbnailUrl
           ?? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
@@ -227,8 +230,24 @@ async function findWatchPageLive(
 }
 
 function extractChannelNameFromHtml(html: string): string | null {
-  const m = html.match(/"ownerChannelName"\s*:\s*"([^"]+)"/);
-  return m?.[1] ?? null;
+  return html.match(/"ownerChannelName"\s*:\s*"([^"]+)"/)?.[1]
+    ?? html.match(/"author"\s*:\s*"([^"]+)"/)?.[1]
+    ?? html.match(/"channelName"\s*:\s*"([^"]+)"/)?.[1]
+    ?? null;
+}
+
+function extractTitleFromHtml(html: string): string | null {
+  const raw = html.match(/<title>([^<]*)<\/title>/i)?.[1];
+  if (!raw) return null;
+  const cleaned = raw.replace(/ - YouTube$/i, '').trim();
+  return cleaned || null;
+}
+
+function extractViewerCountFromHtml(html: string): number {
+  const m = html.match(/"concurrentViewers"\s*:\s*"(\d+)"/)
+    ?? html.match(/"viewCount"\s*:\s*"(\d+)"/);
+  const n = Number(m?.[1]);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function extractInitialData(html: string): JsonObject | null {
