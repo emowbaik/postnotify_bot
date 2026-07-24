@@ -207,7 +207,10 @@ async function findWatchPageLive(
       if (rawIsLive) {
         // oEmbed is a public API that always returns correct title and author_name
         // without challenge responses, regardless of runner IP.
-        const oembedMeta = await fetchOEmbedMeta(videoId);
+        const [oembedMeta, profilePicUrl] = await Promise.all([
+          fetchOEmbedMeta(videoId),
+          fetchChannelAvatar(channelId),
+        ]);
         const channelPageCandidate = pageData ? findActiveLive(pageData) : null;
         const channelName = oembedMeta?.author_name
           ?? channelPageCandidate?.channelName
@@ -224,7 +227,7 @@ async function findWatchPageLive(
         const viewerCount = channelPageCandidate?.viewerCount
           ?? extractViewerCountFromHtml(watchHtml);
         const startedAt = channelPageCandidate?.startedAt ?? new Date().toISOString();
-        return { videoId, title, channelName, thumbnailUrl, profilePicUrl: null, viewerCount, startedAt };
+        return { videoId, title, channelName, thumbnailUrl, profilePicUrl, viewerCount, startedAt };
       }
     } catch {
       // Try the next candidate.
@@ -252,6 +255,24 @@ async function fetchOEmbedMeta(videoId: string): Promise<OEmbedMeta | null> {
       author_name: typeof json.author_name === 'string' ? json.author_name : '',
       thumbnail_url: typeof json.thumbnail_url === 'string' ? json.thumbnail_url : '',
     };
+  } catch {
+    return null;
+  }
+}
+/** Fetch channel avatar via og:image from the channel homepage. */
+async function fetchChannelAvatar(channelId: string): Promise<string | null> {
+  try {
+    const url = `${YOUTUBE_ORIGIN}/channel/${encodeURIComponent(channelId)}`;
+    const response = await fetch(url, {
+      headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'en-US,en;q=0.9' },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    const html = await response.text();
+    const m = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i)
+      ?? html.match(/<meta\s+content="([^"]+)"\s+property="og:image"/i)
+      ?? html.match(/"avatar"\s*:\s*\{[^}]*"url"\s*:\s*"(https:\/\/yt3\.ggpht\.com\/[^"]+)"/);
+    return m?.[1] ?? null;
   } catch {
     return null;
   }

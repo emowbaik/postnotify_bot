@@ -247,12 +247,13 @@ function createFallbackAvatar(displayName: string, accentColor: string): Buffer 
 
 function createTextOverlay(info: LiveInfo): Buffer {
   const creatorName = displayCreatorName(info);
-  const rawTitle = info.title?.trim() || `${creatorName} sedang melakukan siaran langsung`;
+  const rawTitle = stripEmoji(info.title?.trim() || `${creatorName} sedang melakukan siaran langsung`);
   const titleLines = wrapText(rawTitle, 27, 2);
 
   const firstTitleLine = escapeXml(titleLines[0] ?? '');
   const secondTitleLine = escapeXml(titleLines[1] ?? '');
-  const viewers = escapeXml(formatViewerCount(info.viewerCount));
+  const viewerRaw = info.viewerCount ?? 0;
+  const viewers = escapeXml(viewerRaw > 0 ? formatViewerCount(viewerRaw) : '-');
   const duration = escapeXml(formatLiveDuration(info.startedAt));
   const escapedCreatorName = escapeXml(creatorName);
   const platform = platformLabel(info);
@@ -442,6 +443,15 @@ function escapeXml(value: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+/** Remove emoji characters that Ubuntu system fonts cannot render in SVG. */
+function stripEmoji(value: string): string {
+  return value
+    .replace(/\p{Emoji_Presentation}/gu, '')
+    .replace(/\p{Extended_Pictographic}/gu, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 function isHttpUrl(value: string): boolean {
