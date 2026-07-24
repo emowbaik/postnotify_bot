@@ -205,20 +205,25 @@ async function findWatchPageLive(
       // sufficient — false positives on VODs are unlikely given that context.
       const rawIsLive = /"isLive"\s*:\s*true/.test(watchHtml);
       if (rawIsLive) {
-        // Extract richer metadata from channel page data if available.
+        // oEmbed is a public API that always returns correct title and author_name
+        // without challenge responses, regardless of runner IP.
+        const oembedMeta = await fetchOEmbedMeta(videoId);
         const channelPageCandidate = pageData ? findActiveLive(pageData) : null;
-        const channelName = channelPageCandidate?.channelName
+        const channelName = oembedMeta?.author_name
+          ?? channelPageCandidate?.channelName
           ?? extractChannelNameFromHtml(watchHtml)
           ?? extractChannelNameFromHtml(pageHtml)
           ?? channelId;
-        const title = channelPageCandidate?.title
+        const title = oembedMeta?.title
+          ?? channelPageCandidate?.title
           ?? extractTitleFromHtml(watchHtml)
           ?? 'YouTube Live';
+        const thumbnailUrl = oembedMeta?.thumbnail_url
+          ?? channelPageCandidate?.thumbnailUrl
+          ?? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
         const viewerCount = channelPageCandidate?.viewerCount
           ?? extractViewerCountFromHtml(watchHtml);
         const startedAt = channelPageCandidate?.startedAt ?? new Date().toISOString();
-        const thumbnailUrl = channelPageCandidate?.thumbnailUrl
-          ?? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
         return { videoId, title, channelName, thumbnailUrl, profilePicUrl: null, viewerCount, startedAt };
       }
     } catch {
@@ -229,6 +234,28 @@ async function findWatchPageLive(
   return null;
 }
 
+interface OEmbedMeta {
+  title: string;
+  author_name: string;
+  thumbnail_url: string;
+}
+
+async function fetchOEmbedMeta(videoId: string): Promise<OEmbedMeta | null> {
+  try {
+    const url = `${YOUTUBE_ORIGIN}/oembed?url=${encodeURIComponent(`${YOUTUBE_ORIGIN}/watch?v=${videoId}`)}&format=json`;
+    const response = await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+    if (!response.ok) return null;
+    const json = (await response.json()) as unknown;
+    if (!isObject(json)) return null;
+    return {
+      title: typeof json.title === 'string' ? json.title : '',
+      author_name: typeof json.author_name === 'string' ? json.author_name : '',
+      thumbnail_url: typeof json.thumbnail_url === 'string' ? json.thumbnail_url : '',
+    };
+  } catch {
+    return null;
+  }
+}
 function extractChannelNameFromHtml(html: string): string | null {
   return html.match(/"ownerChannelName"\s*:\s*"([^"]+)"/)?.[1]
     ?? html.match(/"author"\s*:\s*"([^"]+)"/)?.[1]
