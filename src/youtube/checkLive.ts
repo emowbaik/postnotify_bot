@@ -3,13 +3,16 @@
  *
  * The channel `/live` page is the primary source. If its embedded initial data
  * does not contain an active broadcast, one bounded Innertube browse request is
- * attempted using the client context embedded in that same page.
+ * attempted using the client context embedded in that same page. When a page
+ * exposes candidate video IDs but no active renderer, bounded watch-page checks
+ * verify active player metadata before reporting live.
  */
 
 import type { LiveCheckResult } from '../types.js';
 
 const YOUTUBE_ORIGIN = 'https://www.youtube.com';
 const REQUEST_TIMEOUT_MS = 15_000;
+const MAX_WATCH_PAGE_CANDIDATES = 3;
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36';
 
@@ -54,6 +57,11 @@ export async function checkYouTubeLive(channelId: string): Promise<LiveCheckResu
 
     if (browseCandidate) {
       return toLiveInfo(normalizedChannelId, browseCandidate);
+    }
+
+    const watchCandidate = await findWatchPageLive(pageData, playerData, pageHtml);
+    if (watchCandidate) {
+      return toLiveInfo(normalizedChannelId, watchCandidate);
     }
 
     console.log(`[YouTube:${normalizedChannelId}] 💤 Not live.`);
@@ -139,6 +147,61 @@ async function fetchBrowseData(channelId: string, pageHtml: string): Promise<Jso
   if (!response.ok) return null;
   const json = (await response.json()) as unknown;
   return isObject(json) ? json : null;
+}
+
+function extractWatchVideoIds(
+  pageData: JsonObject | null,
+  playerData: JsonObject | null,
+  pageHtml: string
+): string[] {
+  const videoIds = new Set<string>();
+  const addVideoId = (value: unknown): void => {
+    if (typeof value === 'string' && /^[\w-]{11}$/.test(value)) {
+      videoIds.add(value);
+    }
+  };
+
+  const playerMicroformat = getObject(getObject(playerData?.microformat)?.playerMicroformatRenderer);
+  addVideoId(getObject(playerData?.videoDetails)?.videoId);
+  addVideoId(playerMicroformat?.externalId);
+
+  if (pageData) {
+    walk(pageData, (value) => {
+      if (!isObject(value)) return;
+      addVideoId(getObject(value.watchEndpoint)?.videoId);
+    });
+  }
+
+  for (const match of pageHtml.matchAll(/"watchEndpoint"\s*:\s*\{\s*"videoId"\s*:\s*"([\w-]{11})"/g)) {
+    addVideoId(match[1]);
+  }
+  for (const match of pageHtml.matchAll(/[?&]v=([\w-]{11})/g)) {
+    addVideoId(match[1]);
+  }
+  for (const match of pageHtml.matchAll(/"videoId"\s*:\s*"([\w-]{11})"/g)) {
+    addVideoId(match[1]);
+  }
+
+  return [...videoIds].slice(0, MAX_WATCH_PAGE_CANDIDATES);
+}
+
+async function findWatchPageLive(
+  pageData: JsonObject | null,
+  playerData: JsonObject | null,
+  pageHtml: string
+): Promise<YouTubeLiveCandidate | null> {
+  for (const videoId of extractWatchVideoIds(pageData, playerData, pageHtml)) {
+    try {
+      const watchUrl = `${YOUTUBE_ORIGIN}/watch?v=${encodeURIComponent(videoId)}`;
+      const watchPlayerData = extractInitialPlayerResponse(await fetchText(watchUrl, 'text/html'));
+      const candidate = watchPlayerData ? findActivePlayerLive(watchPlayerData) : null;
+      if (candidate) return candidate;
+    } catch {
+      // Try the next candidate; no watch-page result is accepted without active metadata.
+    }
+  }
+
+  return null;
 }
 
 function extractInitialData(html: string): JsonObject | null {

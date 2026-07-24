@@ -184,7 +184,9 @@ Update `TIKTOK_USERNAMES` or `YOUTUBE_CHANNEL_IDS` with comma-separated values. 
 
 ### YouTube Detection
 
-YouTube checks use the channel `/live` page and embedded `ytInitialData` first. If no active renderer is found, the bot performs one bounded Innertube `browse` request using the page's internal client key. No official YouTube API key or quota is required.
+YouTube checks use the channel `/live` page and embedded `ytInitialData` first. If no active renderer is found, the bot performs one bounded Innertube `browse` request using the page's internal client key. If a channel page exposes video IDs but not active metadata, the bot checks up to three matching watch pages and only reports a stream when their player response confirms it is live. No official YouTube API key or quota is required.
+
+GitHub Actions runners can receive a different YouTube channel-page response from local browsers. The watch-page fallback handles the observed case, but YouTube can change or restrict unofficial responses without notice.
 
 The detector only reports broadcasts marked active now. Scheduled streams and Premieres that have not started are ignored. Viewer count or start time may be unavailable in unofficial responses; alerts still send with safe fallback values.
 
