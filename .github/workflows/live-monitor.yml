@@ -119,6 +119,29 @@ jobs:
             }
           "
 
+      - name: Debug watch page player response fields
+        run: |
+          bun -e "
+            const vid = 'VAlMDl00mYY';
+            const r = await fetch('https://www.youtube.com/watch?v=' + vid, {
+              headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36', 'Accept-Language': 'en-US,en;q=0.9' }
+            });
+            const html = await r.text();
+            const m = html.match(/ytInitialPlayerResponse\s*=\s*(\{)/);
+            if (!m) { console.log('no player response'); process.exit(1); }
+            let d=0, s=false, e=false, i=m.index+m[0].length-1;
+            for (; i < html.length; i++) {
+              const c = html[i];
+              if (s) { if (e) e=false; else if (c==='\\\\') e=true; else if (c==='\"') s=false; continue; }
+              if (c==='\"') s=true; else if (c==='{') d++; else if (c==='}' && --d===0) break;
+            }
+            const player = JSON.parse(html.slice(m.index+m[0].length-1, i+1));
+            const vd = player?.videoDetails ?? {};
+            const micro = player?.microformat?.playerMicroformatRenderer ?? {};
+            const live = micro?.liveBroadcastDetails ?? {};
+            console.log({ isLive: vd.isLive, isLiveContent: vd.isLiveContent, hasStreamingData: !!player.streamingData, isLiveNow: live.isLiveNow, hasEndTimestamp: !!live.endTimestamp, startTimestamp: live.startTimestamp });
+          "
+
       # ── 4. Run the live check & notify ───────────────────────────────────
       - name: Check live status & send notifications
         run: bun run src/app.ts
