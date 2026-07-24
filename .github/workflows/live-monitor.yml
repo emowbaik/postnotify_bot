@@ -99,6 +99,26 @@ jobs:
             });
           "
 
+      - name: Debug watch page shape
+        run: |
+          bun -e "
+            const id = process.env.YOUTUBE_CHANNEL_IDS.trim();
+            const channelUrl = 'https://www.youtube.com/channel/' + id + '/live';
+            const ch = await fetch(channelUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36', 'Accept-Language': 'en-US,en;q=0.9' } });
+            const html = await ch.text();
+            const videoIds = new Set();
+            for (const m of html.matchAll(/[?&]v=([\w-]{11})/g)) videoIds.add(m[1]);
+            for (const m of html.matchAll(/\"videoId\"\s*:\s*\"([\w-]{11})\"/g)) videoIds.add(m[1]);
+            for (const m of html.matchAll(/\"watchEndpoint\"\s*:\s*\{[^}]*\"videoId\"\s*:\s*\"([\w-]{11})\"/g)) videoIds.add(m[1]);
+            const candidates = [...videoIds].slice(0, 3);
+            console.log('channel page video IDs:', candidates);
+            for (const vid of candidates) {
+              const wr = await fetch('https://www.youtube.com/watch?v=' + vid, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36', 'Accept-Language': 'en-US,en;q=0.9' } });
+              const wh = await wr.text();
+              console.log({ vid, status: wr.status, length: wh.length, hasPlayer: wh.includes('ytInitialPlayerResponse'), isLiveNow: /\"isLiveNow\"\s*:\s*true/.test(wh), isLive: /\"isLive\"\s*:\s*true/.test(wh), hasChallenge: /unusual traffic|captcha/i.test(wh), title: wh.match(/<title>([^<]*)<\/title>/i)?.[1] });
+            }
+          "
+
       # ── 4. Run the live check & notify ───────────────────────────────────
       - name: Check live status & send notifications
         run: bun run src/app.ts
