@@ -190,13 +190,10 @@ async function findWatchPageLive(
   playerData: JsonObject | null,
   pageHtml: string
 ): Promise<YouTubeLiveCandidate | null> {
-  const watchCandidates = extractWatchVideoIds(pageData, playerData, pageHtml);
-  console.log(`[YouTube:watch-fallback] candidates: ${JSON.stringify(watchCandidates)}`);
-  for (const videoId of watchCandidates) {
+  for (const videoId of extractWatchVideoIds(pageData, playerData, pageHtml)) {
     try {
       const watchUrl = `${YOUTUBE_ORIGIN}/watch?v=${encodeURIComponent(videoId)}`;
       const watchHtml = await fetchText(watchUrl, 'text/html');
-      console.log(`[YouTube:watch-fallback] ${videoId} length=${watchHtml.length} rawIsLive=`+/\"isLive\"\s*:\s*true/.test(watchHtml)+` rawIsLiveContent=`+/\"isLiveContent\"\s*:\s*true/.test(watchHtml));
       const watchPlayerData = extractInitialPlayerResponse(watchHtml);
       const candidate = watchPlayerData ? findActivePlayerLive(watchPlayerData) : null;
       if (candidate) return candidate;
@@ -207,15 +204,19 @@ async function findWatchPageLive(
       // sufficient — false positives on VODs are unlikely given that context.
       const rawIsLive = /"isLive"\s*:\s*true/.test(watchHtml);
       if (rawIsLive) {
-        return {
-          videoId,
-          title: watchHtml.match(/<title>([^<]*)<\/title>/i)?.[1]?.replace(/ - YouTube$/, '').trim() ?? 'YouTube Live',
-          channelName: 'YouTube channel',
-          thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
-          profilePicUrl: null,
-          viewerCount: 0,
-          startedAt: new Date().toISOString(),
-        };
+        // Extract richer metadata from channel page data if available.
+        const channelPageCandidate = pageData ? findActiveLive(pageData) : null;
+        const channelName = channelPageCandidate?.channelName
+          ?? extractChannelNameFromHtml(pageHtml)
+          ?? 'YouTube channel';
+        const title = channelPageCandidate?.title
+          ?? watchHtml.match(/<title>([^<]*)<\/title>/i)?.[1]?.replace(/ - YouTube$/, '').trim()
+          ?? 'YouTube Live';
+        const viewerCount = channelPageCandidate?.viewerCount ?? 0;
+        const startedAt = channelPageCandidate?.startedAt ?? new Date().toISOString();
+        const thumbnailUrl = channelPageCandidate?.thumbnailUrl
+          ?? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+        return { videoId, title, channelName, thumbnailUrl, profilePicUrl: null, viewerCount, startedAt };
       }
     } catch {
       // Try the next candidate.
@@ -223,6 +224,11 @@ async function findWatchPageLive(
   }
 
   return null;
+}
+
+function extractChannelNameFromHtml(html: string): string | null {
+  const m = html.match(/"ownerChannelName"\s*:\s*"([^"]+)"/);
+  return m?.[1] ?? null;
 }
 
 function extractInitialData(html: string): JsonObject | null {
