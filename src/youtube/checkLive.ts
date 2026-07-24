@@ -199,12 +199,11 @@ async function findWatchPageLive(
       if (candidate) return candidate;
 
       // GitHub Actions runners receive a challenge-shaped response where videoDetails
-      // is absent but raw live signals are present in the HTML. Trust those signals
-      // only when both isLive and isLiveContent markers appear together.
-      const rawIsLiveNow = /"isLiveNow"\s*:\s*true/.test(watchHtml);
+      // is absent but raw live signals are present in the HTML. The videoId was
+      // sourced from the channel live page, so a single "isLive":true signal is
+      // sufficient — false positives on VODs are unlikely given that context.
       const rawIsLive = /"isLive"\s*:\s*true/.test(watchHtml);
-      const rawIsLiveContent = /"isLiveContent"\s*:\s*true/.test(watchHtml);
-      if (rawIsLiveNow || (rawIsLive && rawIsLiveContent)) {
+      if (rawIsLive) {
         return {
           videoId,
           title: watchHtml.match(/<title>([^<]*)<\/title>/i)?.[1]?.replace(/ - YouTube$/, '').trim() ?? 'YouTube Live',
