@@ -1,4 +1,4 @@
-﻿/**
+/**
  * YouTube live status checker using YouTube's unofficial internal web API data.
  *
  * The channel `/live` page is the primary source. If its embedded initial data
@@ -12,6 +12,8 @@ import type { LiveCheckResult } from '../types.js';
 
 const YOUTUBE_ORIGIN = 'https://www.youtube.com';
 const REQUEST_TIMEOUT_MS = 15_000;
+const WATCH_REQUEST_TIMEOUT_MS = 8_000;
+const LIVE_SIGNAL_WINDOW_SIZE = 5_000;
 const MAX_WATCH_PAGE_CANDIDATES = 3;
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36';
@@ -36,7 +38,7 @@ export async function checkYouTubeLive(channelId: string): Promise<LiveCheckResu
   const liveUrl = `${YOUTUBE_ORIGIN}/channel/${encodeURIComponent(normalizedChannelId)}/live`;
 
   if (!/^UC[\w-]{20,}$/.test(normalizedChannelId)) {
-    console.warn(`[YouTube:${normalizedChannelId}] âš ï¸ Invalid channel ID â€” skipping.`);
+    console.warn(`[YouTube:${normalizedChannelId}] [WARN] Invalid channel ID - skipping.`);
     return { isLive: false, username: normalizedChannelId };
   }
 
@@ -64,11 +66,11 @@ export async function checkYouTubeLive(channelId: string): Promise<LiveCheckResu
       return toLiveInfo(normalizedChannelId, watchCandidate);
     }
 
-    console.log(`[YouTube:${normalizedChannelId}] ðŸ’¤ Not live.`);
+    console.log(`[YouTube:${normalizedChannelId}] [OFFLINE] Not live.`);
     return { isLive: false, username: normalizedChannelId };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    console.warn(`[YouTube:${normalizedChannelId}] âš ï¸ Error: ${message}`);
+    console.warn(`[YouTube:${normalizedChannelId}] [ERROR] ${message}`);
     return { isLive: false, username: normalizedChannelId };
   }
 }
@@ -90,19 +92,23 @@ function toLiveInfo(channelId: string, candidate: YouTubeLiveCandidate): LiveChe
   };
 
   console.log(
-    `[YouTube:${channelId}] âœ… LIVE â€” video: ${candidate.videoId}, viewers: ${candidate.viewerCount}, title: ${info.title}`
+    `[YouTube:${channelId}] [LIVE] video: ${candidate.videoId}, viewers: ${candidate.viewerCount}, title: ${info.title}`
   );
   return info;
 }
 
-async function fetchText(url: string, accept: string): Promise<string> {
+async function fetchText(
+  url: string,
+  accept: string,
+  timeoutMs = REQUEST_TIMEOUT_MS
+): Promise<string> {
   const response = await fetch(url, {
     headers: {
       'User-Agent': USER_AGENT,
       Accept: accept,
       'Accept-Language': 'en-US,en;q=0.9',
     },
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    signal: AbortSignal.timeout(timeoutMs),
   });
 
   if (!response.ok) {
@@ -191,50 +197,85 @@ async function findWatchPageLive(
   pageHtml: string,
   channelId: string
 ): Promise<YouTubeLiveCandidate | null> {
-  for (const videoId of extractWatchVideoIds(pageData, playerData, pageHtml)) {
-    try {
-      const watchUrl = `${YOUTUBE_ORIGIN}/watch?v=${encodeURIComponent(videoId)}`;
-      const watchHtml = await fetchText(watchUrl, 'text/html');
-      const watchPlayerData = extractInitialPlayerResponse(watchHtml);
-      const candidate = watchPlayerData ? findActivePlayerLive(watchPlayerData) : null;
-      if (candidate) return candidate;
+  const videoIds = extractWatchVideoIds(pageData, playerData, pageHtml);
+  if (videoIds.length === 0) return null;
 
-      // GitHub Actions runners receive a challenge-shaped response where videoDetails
-      // is absent but raw live signals are present in the HTML. The videoId was
-      // sourced from the channel live page, so a single "isLive":true signal is
-      // sufficient — false positives on VODs are unlikely given that context.
-      const rawIsLive = /"isLive"\s*:\s*true/.test(watchHtml);
-      if (rawIsLive) {
-        // oEmbed is a public API that always returns correct title and author_name
-        // without challenge responses, regardless of runner IP.
-        const [oembedMeta, profilePicUrl] = await Promise.all([
-          fetchOEmbedMeta(videoId),
-          fetchChannelAvatar(channelId),
-        ]);
-        const channelPageCandidate = pageData ? findActiveLive(pageData) : null;
-        const channelName = oembedMeta?.author_name
-          ?? channelPageCandidate?.channelName
-          ?? extractChannelNameFromHtml(watchHtml)
-          ?? extractChannelNameFromHtml(pageHtml)
-          ?? channelId;
-        const title = oembedMeta?.title
-          ?? channelPageCandidate?.title
-          ?? extractTitleFromHtml(watchHtml)
-          ?? 'YouTube Live';
-        const thumbnailUrl = oembedMeta?.thumbnail_url
-          ?? channelPageCandidate?.thumbnailUrl
-          ?? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
-        const viewerCount = channelPageCandidate?.viewerCount
-          ?? extractViewerCountFromHtml(watchHtml);
-        const startedAt = channelPageCandidate?.startedAt ?? new Date().toISOString();
-        return { videoId, title, channelName, thumbnailUrl, profilePicUrl, viewerCount, startedAt };
-      }
-    } catch {
-      // Try the next candidate.
+  try {
+    return await Promise.any(
+      videoIds.map((videoId) =>
+        fetchWatchCandidate(videoId, channelId, pageData, pageHtml)
+      )
+    );
+  } catch {
+    return null;
+  }
+}
+
+async function fetchWatchCandidate(
+  videoId: string,
+  channelId: string,
+  pageData: JsonObject | null,
+  pageHtml: string
+): Promise<YouTubeLiveCandidate> {
+  try {
+    const watchUrl = `${YOUTUBE_ORIGIN}/watch?v=${encodeURIComponent(videoId)}`;
+    const watchHtml = await fetchText(watchUrl, 'text/html', WATCH_REQUEST_TIMEOUT_MS);
+    const watchPlayerData = extractInitialPlayerResponse(watchHtml);
+    const candidate = watchPlayerData ? findActivePlayerLive(watchPlayerData) : null;
+    if (candidate) return candidate;
+
+    if (!isVideoIdLiveInHtml(watchHtml, videoId)) {
+      throw new Error('candidate is not live');
     }
+
+    const [oembedMeta, profilePicUrl] = await Promise.all([
+      fetchOEmbedMeta(videoId),
+      fetchChannelAvatar(channelId),
+    ]);
+    const channelPageCandidate = pageData ? findActiveLive(pageData) : null;
+    const channelName = oembedMeta?.author_name
+      ?? channelPageCandidate?.channelName
+      ?? extractChannelNameFromHtml(watchHtml)
+      ?? extractChannelNameFromHtml(pageHtml)
+      ?? channelId;
+    const title = oembedMeta?.title
+      ?? channelPageCandidate?.title
+      ?? extractTitleFromHtml(watchHtml)
+      ?? 'YouTube Live';
+    const thumbnailUrl = oembedMeta?.thumbnail_url
+      ?? channelPageCandidate?.thumbnailUrl
+      ?? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+    const viewerCount = channelPageCandidate?.viewerCount
+      ?? extractViewerCountFromHtml(watchHtml);
+    const startedAt = channelPageCandidate?.startedAt ?? new Date().toISOString();
+    return { videoId, title, channelName, thumbnailUrl, profilePicUrl, viewerCount, startedAt };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[YouTube:watch-fallback] ${videoId} failed: ${message}`);
+    throw error;
+  }
+}
+
+function isVideoIdLiveInHtml(html: string, videoId: string): boolean {
+  const encodedVideoId = `"${videoId}"`;
+  let offset = 0;
+
+  while (offset < html.length) {
+    const videoIdIndex = html.indexOf(encodedVideoId, offset);
+    if (videoIdIndex === -1) return false;
+
+    const start = Math.max(0, videoIdIndex - LIVE_SIGNAL_WINDOW_SIZE);
+    const end = Math.min(html.length, videoIdIndex + LIVE_SIGNAL_WINDOW_SIZE);
+    const window = html.slice(start, end);
+    const isLiveNow = /"isLiveNow"\s*:\s*true/.test(window);
+    const isLive = /"isLive"\s*:\s*true/.test(window);
+    const isLiveContent = /"isLiveContent"\s*:\s*true/.test(window);
+
+    if (isLiveNow || (isLive && isLiveContent)) return true;
+    offset = videoIdIndex + encodedVideoId.length;
   }
 
-  return null;
+  return false;
 }
 
 interface OEmbedMeta {
