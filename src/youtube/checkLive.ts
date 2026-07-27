@@ -225,6 +225,11 @@ async function fetchWatchCandidate(
     if (candidate) return candidate;
 
     if (!isVideoIdLiveInHtml(watchHtml, videoId)) {
+      console.warn(
+        `[YouTube:watch-fallback] ${videoId} signal diagnostics: ${JSON.stringify(
+          describeLiveSignals(watchHtml, videoId)
+        )}`
+      );
       throw new Error('candidate is not live');
     }
 
@@ -276,6 +281,47 @@ function isVideoIdLiveInHtml(html: string, videoId: string): boolean {
   }
 
   return false;
+}
+
+function describeLiveSignals(html: string, videoId: string): JsonObject {
+  const encodedVideoId = `"${videoId}"`;
+  const videoPositions: number[] = [];
+  let offset = 0;
+
+  while (offset < html.length) {
+    const position = html.indexOf(encodedVideoId, offset);
+    if (position === -1) break;
+    videoPositions.push(position);
+    offset = position + encodedVideoId.length;
+  }
+
+  const markerPatterns = {
+    isLiveNow: /"isLiveNow"\s*:\s*true/g,
+    isLive: /"isLive"\s*:\s*true/g,
+    isLiveContent: /"isLiveContent"\s*:\s*true/g,
+  };
+  const markerPositions = Object.fromEntries(
+    Object.entries(markerPatterns).map(([name, pattern]) => [
+      name,
+      [...html.matchAll(pattern)].map((match) => match.index),
+    ])
+  ) as Record<string, number[]>;
+  const allMarkers = Object.values(markerPositions).flat();
+  const nearestDistance = videoPositions.length > 0 && allMarkers.length > 0
+    ? Math.min(...videoPositions.flatMap((videoPosition) =>
+        allMarkers.map((markerPosition) => Math.abs(markerPosition - videoPosition))
+      ))
+    : null;
+
+  return {
+    htmlLength: html.length,
+    videoIdOccurrences: videoPositions.length,
+    isLiveNowMarkers: markerPositions.isLiveNow?.length ?? 0,
+    isLiveMarkers: markerPositions.isLive?.length ?? 0,
+    isLiveContentMarkers: markerPositions.isLiveContent?.length ?? 0,
+    nearestMarkerDistance: nearestDistance,
+    windowSize: LIVE_SIGNAL_WINDOW_SIZE,
+  };
 }
 
 interface OEmbedMeta {
