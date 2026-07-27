@@ -1,617 +1,126 @@
-/**
- * YouTube live status checker using YouTube's unofficial internal web API data.
- *
- * The channel `/live` page is the primary source. If its embedded initial data
- * does not contain an active broadcast, one bounded Innertube browse request is
- * attempted using the client context embedded in that same page. When a page
- * exposes candidate video IDs but no active renderer, bounded watch-page checks
- * verify active player metadata before reporting live.
- */
+import type { LiveCheckError, LiveCheckResult, LiveInfo } from '../types.js';
 
-import type { LiveCheckResult } from '../types.js';
-
-const YOUTUBE_ORIGIN = 'https://www.youtube.com';
+const API_ORIGIN = 'https://www.googleapis.com/youtube/v3';
 const REQUEST_TIMEOUT_MS = 15_000;
-const WATCH_REQUEST_TIMEOUT_MS = 8_000;
-const MAX_WATCH_PAGE_CANDIDATES = 3;
-const USER_AGENT =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36';
+const UPLOAD_SCAN_SIZE = 20;
+const CHANNEL_ID_PATTERN = /^UC[\w-]{20,}$/;
+const VIDEO_ID_PATTERN = /^[\w-]{11}$/;
+type JsonObject = Record<string, unknown>;
+interface ApiItem extends JsonObject { id?: unknown; contentDetails?: unknown; snippet?: unknown; liveStreamingDetails?: unknown; }
 
-interface YouTubeLiveCandidate {
-  videoId: string;
-  title: string;
-  channelName: string;
-  thumbnailUrl: string | null;
-  profilePicUrl: string | null;
-  viewerCount: number;
-  startedAt: string;
-}
-
-interface JsonObject {
-  [key: string]: unknown;
-}
-
-/** Check one YouTube channel ID for an active live or airing Premiere. */
-export async function checkYouTubeLive(channelId: string): Promise<LiveCheckResult> {
-  const normalizedChannelId = channelId.trim();
-  const liveUrl = `${YOUTUBE_ORIGIN}/channel/${encodeURIComponent(normalizedChannelId)}/live`;
-
-  if (!/^UC[\w-]{20,}$/.test(normalizedChannelId)) {
-    console.warn(`[YouTube:${normalizedChannelId}] [WARN] Invalid channel ID - skipping.`);
-    return { status: 'offline', isLive: false, platform: 'youtube', username: normalizedChannelId };
-  }
-
+export async function checkYouTubeLive(channelId: string, apiKey: string, knownActiveVideoId?: string): Promise<LiveCheckResult> {
+  const target = channelId.trim();
+  if (!CHANNEL_ID_PATTERN.test(target)) return errorResult(target, 'YOUTUBE_CHANNEL_INVALID', 'Invalid YouTube channel ID.');
+  if (!apiKey.trim()) return errorResult(target, 'YOUTUBE_API_KEY_MISSING', 'YOUTUBE_API_KEY is required.');
   try {
-    const pageHtml = await fetchText(liveUrl, 'text/html');
-    const pageData = extractInitialData(pageHtml);
-    const playerData = extractInitialPlayerResponse(pageHtml);
-    const candidate =
-      (playerData ? findActivePlayerLive(playerData) : null) ??
-      (pageData ? findActiveLive(pageData) : null);
-
-    if (candidate) {
-      return toLiveInfo(normalizedChannelId, candidate);
+    if (knownActiveVideoId && VIDEO_ID_PATTERN.test(knownActiveVideoId)) {
+      const active = newestActiveVideo(await fetchVideos([knownActiveVideoId], apiKey));
+      if (active) return await toLiveInfo(active, target, apiKey);
     }
-
-    const browseData = await fetchBrowseData(normalizedChannelId, pageHtml);
-    const browseCandidate = browseData ? findActiveLive(browseData) : null;
-
-    if (browseCandidate) {
-      return toLiveInfo(normalizedChannelId, browseCandidate);
-    }
-
-    const watchCandidate = await findWatchPageLive(pageData, playerData, pageHtml, normalizedChannelId);
-    if (watchCandidate) {
-      return toLiveInfo(normalizedChannelId, watchCandidate);
-    }
-
-    console.log(`[YouTube:${normalizedChannelId}] [OFFLINE] Not live.`);
-    return { status: 'offline', isLive: false, platform: 'youtube', username: normalizedChannelId };
+    const videoIds = await fetchUploadVideoIds(target, apiKey);
+    if (videoIds.length === 0) return offline(target);
+    const active = newestActiveVideo(await fetchVideos(videoIds, apiKey));
+    return active ? await toLiveInfo(active, target, apiKey) : offline(target);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.warn(`[YouTube:${normalizedChannelId}] [ERROR] ${message}`);
-    return { status: 'offline', isLive: false, platform: 'youtube', username: normalizedChannelId };
+    const normalized = normalizeError(error);
+    console.warn(`[YouTube:${target}] [ERROR] ${normalized.message}`);
+    return errorResult(target, normalized.code, normalized.message);
   }
 }
 
-function toLiveInfo(channelId: string, candidate: YouTubeLiveCandidate): LiveCheckResult {
-  const info: LiveCheckResult = {
-    status: 'live',
-    isLive: true,
-    platform: 'youtube',
-    username: channelId,
-    displayName: candidate.channelName || channelId,
-    roomId: candidate.videoId,
-    title: candidate.title || `${candidate.channelName || channelId} Live`,
-    viewerCount: candidate.viewerCount,
-    thumbnailUrl: candidate.thumbnailUrl,
-    profilePicUrl: candidate.profilePicUrl,
-    liveUrl: `${YOUTUBE_ORIGIN}/watch?v=${encodeURIComponent(candidate.videoId)}`,
-    profileUrl: `${YOUTUBE_ORIGIN}/channel/${encodeURIComponent(channelId)}`,
-    startedAt: candidate.startedAt,
+async function fetchUploadVideoIds(channelId: string, apiKey: string): Promise<string[]> {
+  const data = await apiRequest('playlistItems', { part: 'contentDetails', playlistId: `UU${channelId.slice(2)}`, maxResults: String(UPLOAD_SCAN_SIZE) }, apiKey);
+  return getItems(data).flatMap((item) => {
+    const videoId = asObject(item.contentDetails)?.videoId;
+    return typeof videoId === 'string' && VIDEO_ID_PATTERN.test(videoId) ? [videoId] : [];
+  });
+}
+async function fetchVideos(videoIds: string[], apiKey: string): Promise<ApiItem[]> {
+  return getItems(await apiRequest('videos', { part: 'snippet,liveStreamingDetails', id: videoIds.join(',') }, apiKey));
+}
+async function fetchChannel(channelId: string, apiKey: string): Promise<ApiItem | null> {
+  return getItems(await apiRequest('channels', { part: 'snippet', id: channelId }, apiKey))[0] ?? null;
+}
+async function apiRequest(resource: string, params: Record<string, string>, apiKey: string): Promise<JsonObject> {
+  const url = new URL(`${API_ORIGIN}/${resource}`);
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+  url.searchParams.set('key', apiKey);
+  let response: Response;
+  try {
+    response = await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+  } catch (error: unknown) {
+    if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) throw new YouTubeApiError('YOUTUBE_TIMEOUT', 'YouTube API request timed out.');
+    throw new YouTubeApiError('YOUTUBE_NETWORK_ERROR', 'YouTube API request failed.');
+  }
+  const data = await readJson(response);
+  if (!response.ok) throw googleApiError(response.status, data);
+  if (!data) throw new YouTubeApiError('YOUTUBE_RESPONSE_INVALID', 'YouTube API returned invalid JSON.');
+  return data;
+}
+async function readJson(response: Response): Promise<JsonObject | null> {
+  try { return asObject(await response.json() as unknown); } catch { return null; }
+}
+function googleApiError(status: number, data: JsonObject | null): YouTubeApiError {
+  const error = asObject(data?.error);
+  const errors = Array.isArray(error?.errors) ? error.errors : [];
+  const reason = errors.map(asObject).find(Boolean)?.reason;
+  if (reason === 'quotaExceeded' || reason === 'dailyLimitExceeded') return new YouTubeApiError('YOUTUBE_QUOTA_EXCEEDED', 'YouTube API quota exceeded.');
+  if (reason === 'keyInvalid' || reason === 'accessNotConfigured' || reason === 'ipRefererBlocked') return new YouTubeApiError('YOUTUBE_API_KEY_INVALID', 'YouTube API key is invalid or not authorized.');
+  return new YouTubeApiError(`YOUTUBE_HTTP_${status}`, `YouTube API returned HTTP ${status}.`);
+}
+function newestActiveVideo(items: ApiItem[]): ApiItem | null {
+  return items.filter(isActiveLive).sort((a, b) => startTime(b).localeCompare(startTime(a)))[0] ?? null;
+}
+function isActiveLive(item: ApiItem): boolean {
+  const snippet = asObject(item.snippet);
+  const details = asObject(item.liveStreamingDetails);
+  return snippet?.liveBroadcastContent === 'live' && typeof details?.actualStartTime === 'string' && typeof details.actualEndTime !== 'string';
+}
+async function toLiveInfo(video: ApiItem, channelId: string, apiKey: string): Promise<LiveInfo> {
+  const videoId = typeof video.id === 'string' ? video.id : '';
+  if (!VIDEO_ID_PATTERN.test(videoId)) throw new YouTubeApiError('YOUTUBE_RESPONSE_INVALID', 'Active video has no valid ID.');
+  const snippet = asObject(video.snippet) ?? {};
+  const details = asObject(video.liveStreamingDetails) ?? {};
+  const channelSnippet = asObject((await fetchChannel(channelId, apiKey))?.snippet) ?? {};
+  const info: LiveInfo = {
+    status: 'live', isLive: true, platform: 'youtube', username: channelId,
+    displayName: stringValue(channelSnippet.title) ?? stringValue(snippet.channelTitle) ?? channelId,
+    roomId: videoId, title: stringValue(snippet.title) ?? 'YouTube Live',
+    viewerCount: nonNegativeInteger(details.concurrentViewers), thumbnailUrl: bestThumbnail(snippet.thumbnails),
+    profilePicUrl: bestThumbnail(channelSnippet.thumbnails), liveUrl: `https://www.youtube.com/watch?v=${videoId}`,
+    profileUrl: `https://www.youtube.com/channel/${channelId}`, startedAt: stringValue(details.actualStartTime) ?? new Date().toISOString(),
   };
-
-  console.log(
-    `[YouTube:${channelId}] [LIVE] video: ${candidate.videoId}, viewers: ${candidate.viewerCount}, title: ${info.title}`
-  );
+  console.log(`[YouTube:${channelId}] [LIVE] video: ${videoId}, viewers: ${info.viewerCount}, title: ${info.title}`);
   return info;
 }
-
-async function fetchText(
-  url: string,
-  accept: string,
-  timeoutMs = REQUEST_TIMEOUT_MS
-): Promise<string> {
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': USER_AGENT,
-      Accept: accept,
-      'Accept-Language': 'en-US,en;q=0.9',
-    },
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-
-  if (!response.ok) {
-    throw new Error(`YouTube HTTP ${response.status}`);
-  }
-
-  return response.text();
+function offline(channelId: string): LiveCheckResult {
+  console.log(`[YouTube:${channelId}] [OFFLINE] Not live.`);
+  return { status: 'offline', isLive: false, platform: 'youtube', username: channelId };
 }
-
-async function fetchBrowseData(channelId: string, pageHtml: string): Promise<JsonObject | null> {
-  const apiKey = extractQuotedValue(pageHtml, 'INNERTUBE_API_KEY');
-  const clientVersion =
-    extractQuotedValue(pageHtml, 'INNERTUBE_CLIENT_VERSION') ?? '2.20250701.01.00';
-
-  if (!apiKey) return null;
-
-  const response = await fetch(
-    `${YOUTUBE_ORIGIN}/youtubei/v1/browse?key=${encodeURIComponent(apiKey)}`,
-    {
-      method: 'POST',
-      headers: {
-        'User-Agent': USER_AGENT,
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        Origin: YOUTUBE_ORIGIN,
-      },
-      body: JSON.stringify({
-        context: {
-          client: {
-            clientName: 'WEB',
-            clientVersion,
-            hl: 'en',
-            gl: 'US',
-          },
-        },
-        browseId: channelId,
-      }),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    }
-  );
-
-  if (!response.ok) return null;
-  const json = (await response.json()) as unknown;
-  return isObject(json) ? json : null;
+function errorResult(username: string, errorCode: string, message: string): LiveCheckError {
+  return { status: 'error', isLive: false, platform: 'youtube', username, errorCode, message };
 }
-
-function extractWatchVideoIds(
-  pageData: JsonObject | null,
-  playerData: JsonObject | null,
-  pageHtml: string
-): string[] {
-  const videoIds = new Set<string>();
-  const addVideoId = (value: unknown): void => {
-    if (typeof value === 'string' && /^[\w-]{11}$/.test(value)) {
-      videoIds.add(value);
-    }
-  };
-
-  const playerMicroformat = getObject(getObject(playerData?.microformat)?.playerMicroformatRenderer);
-  addVideoId(getObject(playerData?.videoDetails)?.videoId);
-  addVideoId(playerMicroformat?.externalId);
-
-  if (pageData) {
-    walk(pageData, (value) => {
-      if (!isObject(value)) return;
-      addVideoId(getObject(value.watchEndpoint)?.videoId);
-    });
-  }
-
-  for (const match of pageHtml.matchAll(/"watchEndpoint"\s*:\s*\{\s*"videoId"\s*:\s*"([\w-]{11})"/g)) {
-    addVideoId(match[1]);
-  }
-  for (const match of pageHtml.matchAll(/[?&]v=([\w-]{11})/g)) {
-    addVideoId(match[1]);
-  }
-  for (const match of pageHtml.matchAll(/"videoId"\s*:\s*"([\w-]{11})"/g)) {
-    addVideoId(match[1]);
-  }
-
-  return [...videoIds].slice(0, MAX_WATCH_PAGE_CANDIDATES);
+function getItems(data: JsonObject): ApiItem[] { return Array.isArray(data.items) ? data.items.filter(isObject) : []; }
+function asObject(value: unknown): JsonObject | null { return isObject(value) ? value : null; }
+function isObject(value: unknown): value is JsonObject { return typeof value === 'object' && value !== null && !Array.isArray(value); }
+function stringValue(value: unknown): string | null { return typeof value === 'string' && value.trim() ? value : null; }
+function startTime(item: ApiItem): string { return stringValue(asObject(item.liveStreamingDetails)?.actualStartTime) ?? ''; }
+function nonNegativeInteger(value: unknown): number {
+  const parsed = typeof value === 'string' || typeof value === 'number' ? Number(value) : 0;
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : 0;
 }
-
-async function findWatchPageLive(
-  pageData: JsonObject | null,
-  playerData: JsonObject | null,
-  pageHtml: string,
-  channelId: string
-): Promise<YouTubeLiveCandidate | null> {
-  const videoIds = extractWatchVideoIds(pageData, playerData, pageHtml);
-  if (videoIds.length === 0) return null;
-
-  try {
-    return await Promise.any(
-      videoIds.map((videoId) =>
-        fetchWatchCandidate(videoId, channelId, pageData, pageHtml)
-      )
-    );
-  } catch {
-    return null;
-  }
-}
-
-async function fetchWatchCandidate(
-  videoId: string,
-  channelId: string,
-  pageData: JsonObject | null,
-  pageHtml: string
-): Promise<YouTubeLiveCandidate> {
-  try {
-    const watchUrl = `${YOUTUBE_ORIGIN}/watch?v=${encodeURIComponent(videoId)}`;
-    const watchHtml = await fetchText(watchUrl, 'text/html', WATCH_REQUEST_TIMEOUT_MS);
-    const watchPlayerData = extractInitialPlayerResponse(watchHtml);
-    const candidate = watchPlayerData ? findActivePlayerLive(watchPlayerData) : null;
-    if (candidate) return candidate;
-
-    if (!isVideoIdLiveInHtml(watchHtml, videoId, channelId)) {
-      throw new Error('candidate is not live');
-    }
-
-    const [oembedMeta, profilePicUrl] = await Promise.all([
-      fetchOEmbedMeta(videoId),
-      fetchChannelAvatar(channelId),
-    ]);
-    const channelPageCandidate = pageData ? findActiveLive(pageData) : null;
-    const channelName = oembedMeta?.author_name
-      ?? channelPageCandidate?.channelName
-      ?? extractChannelNameFromHtml(watchHtml)
-      ?? extractChannelNameFromHtml(pageHtml)
-      ?? channelId;
-    const title = oembedMeta?.title
-      ?? channelPageCandidate?.title
-      ?? extractTitleFromHtml(watchHtml)
-      ?? 'YouTube Live';
-    const thumbnailUrl = oembedMeta?.thumbnail_url
-      ?? channelPageCandidate?.thumbnailUrl
-      ?? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
-    const viewerCount = channelPageCandidate?.viewerCount
-      ?? extractViewerCountFromHtml(watchHtml);
-    const startedAt = channelPageCandidate?.startedAt ?? new Date().toISOString();
-    return { videoId, title, channelName, thumbnailUrl, profilePicUrl, viewerCount, startedAt };
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.warn(`[YouTube:watch-fallback] ${videoId} failed: ${message}`);
-    throw error;
-  }
-}
-
-function isVideoIdLiveInHtml(
-  html: string,
-  videoId: string,
-  channelId: string
-): boolean {
-  const encodedVideoId = `"${videoId}"`;
-  if (!html.includes(encodedVideoId)) return false;
-
-  const escapedChannelId = channelId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const belongsToTargetChannel = new RegExp(
-    `"channelId"\\s*:\\s*"${escapedChannelId}"`
-  ).test(html);
-  const isLiveNow = /"isLiveNow"\s*:\s*true/.test(html);
-  const isLive = /"isLive"\s*:\s*true/.test(html);
-  const isLiveContent = /"isLiveContent"\s*:\s*true/.test(html);
-
-  return isLiveNow || (isLive && (isLiveContent || belongsToTargetChannel));
-}
-
-interface OEmbedMeta {
-  title: string;
-  author_name: string;
-  thumbnail_url: string;
-}
-
-async function fetchOEmbedMeta(videoId: string): Promise<OEmbedMeta | null> {
-  try {
-    const url = `${YOUTUBE_ORIGIN}/oembed?url=${encodeURIComponent(`${YOUTUBE_ORIGIN}/watch?v=${videoId}`)}&format=json`;
-    const response = await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
-    if (!response.ok) return null;
-    const json = (await response.json()) as unknown;
-    if (!isObject(json)) return null;
-    return {
-      title: typeof json.title === 'string' ? json.title : '',
-      author_name: typeof json.author_name === 'string' ? json.author_name : '',
-      thumbnail_url: typeof json.thumbnail_url === 'string' ? json.thumbnail_url : '',
-    };
-  } catch {
-    return null;
-  }
-}
-/** Fetch channel avatar via og:image from the channel homepage. */
-async function fetchChannelAvatar(channelId: string): Promise<string | null> {
-  try {
-    const url = `${YOUTUBE_ORIGIN}/channel/${encodeURIComponent(channelId)}`;
-    const response = await fetch(url, {
-      headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'en-US,en;q=0.9' },
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-    if (!response.ok) return null;
-    const html = await response.text();
-    const m = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i)
-      ?? html.match(/<meta\s+content="([^"]+)"\s+property="og:image"/i)
-      ?? html.match(/"avatar"\s*:\s*\{[^}]*"url"\s*:\s*"(https:\/\/yt3\.ggpht\.com\/[^"]+)"/);
-    return m?.[1] ?? null;
-  } catch {
-    return null;
-  }
-}
-function extractChannelNameFromHtml(html: string): string | null {
-  return html.match(/"ownerChannelName"\s*:\s*"([^"]+)"/)?.[1]
-    ?? html.match(/"author"\s*:\s*"([^"]+)"/)?.[1]
-    ?? html.match(/"channelName"\s*:\s*"([^"]+)"/)?.[1]
-    ?? null;
-}
-
-function extractTitleFromHtml(html: string): string | null {
-  const raw = html.match(/<title>([^<]*)<\/title>/i)?.[1];
-  if (!raw) return null;
-  const cleaned = raw.replace(/ - YouTube$/i, '').trim();
-  return cleaned || null;
-}
-
-function extractViewerCountFromHtml(html: string): number {
-  const m = html.match(/"concurrentViewers"\s*:\s*"(\d+)"/)
-    ?? html.match(/"viewCount"\s*:\s*"(\d+)"/);
-  const n = Number(m?.[1]);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function extractInitialData(html: string): JsonObject | null {
-  return extractEmbeddedJson(html, [
-    /ytInitialData\s*=\s*/g,
-    /["']ytInitialData["']\s*:\s*/g,
-  ]);
-}
-
-function extractInitialPlayerResponse(html: string): JsonObject | null {
-  return extractEmbeddedJson(html, [
-    /ytInitialPlayerResponse\s*=\s*/g,
-    /["']ytInitialPlayerResponse["']\s*:\s*/g,
-  ]);
-}
-
-function extractEmbeddedJson(html: string, markers: RegExp[]): JsonObject | null {
-  for (const marker of markers) {
-    marker.lastIndex = 0;
-    const match = marker.exec(html);
-    if (!match) continue;
-
-    const start = html.indexOf('{', match.index + match[0].length);
-    const rawJson = start >= 0 ? extractBalancedJson(html, start) : null;
-    if (!rawJson) continue;
-
-    try {
-      const parsed = JSON.parse(rawJson) as unknown;
-      if (isObject(parsed)) return parsed;
-    } catch {
-      // Try the next embedded data marker.
-    }
-  }
-
-  return null;
-}
-
-function extractBalancedJson(source: string, start: number): string | null {
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-
-  for (let index = start; index < source.length; index++) {
-    const character = source[index];
-
-    if (inString) {
-      if (escaped) {
-        escaped = false;
-      } else if (character === '\\') {
-        escaped = true;
-      } else if (character === '"') {
-        inString = false;
-      }
-      continue;
-    }
-
-    if (character === '"') {
-      inString = true;
-    } else if (character === '{') {
-      depth++;
-    } else if (character === '}' && --depth === 0) {
-      return source.slice(start, index + 1);
-    }
-  }
-
-  return null;
-}
-
-function findActivePlayerLive(player: JsonObject): YouTubeLiveCandidate | null {
-  const videoDetails = getObject(player.videoDetails);
-  if (!videoDetails) return null;
-
-  const microformat = getObject(getObject(player.microformat)?.playerMicroformatRenderer);
-  const liveDetails = getObject(microformat?.liveBroadcastDetails);
-  const hasStream = isObject(player.streamingData);
-  const isLiveNow =
-    videoDetails.isLive === true ||
-    liveDetails?.isLiveNow === true ||
-    (videoDetails.isLiveContent === true &&
-      hasStream &&
-      !isFutureTimestamp(liveDetails?.startTimestamp));
-
-  if (!isLiveNow) return null;
-
-  const videoId = readString(videoDetails.videoId) ?? readString(microformat?.externalId);
-  if (!videoId) return null;
-
-  const channelName =
-    readString(videoDetails.author) ?? readText(microformat?.ownerChannelName) ?? 'YouTube channel';
-  const startTime = readString(liveDetails?.startTimestamp);
-
-  return {
-    videoId,
-    title: readString(videoDetails.title) ?? readText(microformat?.title) ?? 'YouTube Live',
-    channelName,
-    thumbnailUrl: readThumbnail(videoDetails.thumbnail) ?? readThumbnail(microformat?.thumbnail),
-    profilePicUrl: null,
-    viewerCount: parseViewerCount(
-      readString(liveDetails?.concurrentViewers) ?? readString(videoDetails.viewCount)
-    ),
-    startedAt: startTime && !Number.isNaN(Date.parse(startTime))
-      ? new Date(startTime).toISOString()
-      : new Date().toISOString(),
-  };
-}
-
-function findActiveLive(root: unknown): YouTubeLiveCandidate | null {
-  const renderers: JsonObject[] = [];
-  walk(root, (value) => {
-    if (!isObject(value)) return;
-
-    for (const key of ['videoRenderer', 'gridVideoRenderer', 'compactVideoRenderer']) {
-      const renderer = value[key];
-      if (isObject(renderer) && typeof renderer.videoId === 'string') {
-        renderers.push(renderer);
-      }
-    }
-  });
-
-  for (const renderer of renderers) {
-    if (!isActiveLiveRenderer(renderer)) continue;
-
-    const videoId = typeof renderer.videoId === 'string' ? renderer.videoId : '';
-    if (!videoId) continue;
-
-    return {
-      videoId,
-      title: readText(renderer.title) ?? 'YouTube Live',
-      channelName:
-        readText(renderer.ownerText) ?? readText(renderer.shortBylineText) ?? 'YouTube channel',
-      thumbnailUrl: readThumbnail(renderer.thumbnail),
-      profilePicUrl:
-        readThumbnail(renderer.channelThumbnailSupportedRenderers) ??
-        readThumbnail(renderer.channelThumbnail),
-      viewerCount: parseViewerCount(
-        readText(renderer.viewCountText) ?? readText(renderer.shortViewCountText)
-      ),
-      startedAt: readStartTime(renderer) ?? new Date().toISOString(),
-    };
-  }
-
-  return null;
-}
-
-function isActiveLiveRenderer(renderer: JsonObject): boolean {
-  if (hasUpcomingMarker(renderer)) return false;
-
-  let active = false;
-  walk(renderer, (value) => {
-    if (!isObject(value)) return;
-
-    const style = value.style;
-    if (style === 'LIVE' || style === 'LIVE_NOW') active = true;
-    if (value.thumbnailOverlayNowPlayingRenderer) active = true;
-
-    const label = readText(value.label) ?? readText(value.text);
-    if (label && /\blive(?: now)?\b/i.test(label)) active = true;
-
-    if (value.isLiveNow === true || value.isLive === true) active = true;
-  });
-
-  return active;
-}
-
-function hasUpcomingMarker(renderer: JsonObject): boolean {
-  let upcoming = false;
-  walk(renderer, (value) => {
-    if (!isObject(value)) return;
-
-    const style = readString(value.style);
-    const label = [readText(value.text), readText(value.label), readText(value.badgeText)]
-      .filter(Boolean)
-      .join(' ');
-
-    if (
-      value.upcomingEventData ||
-      style === 'UPCOMING' ||
-      /upcoming|scheduled|set reminder|premieres?\s+(?:in|on)/i.test(label)
-    ) {
-      upcoming = true;
-    }
-  });
-  return upcoming;
-}
-
-function readText(value: unknown): string | null {
-  if (typeof value === 'string') return value.trim() || null;
-  if (!isObject(value)) return null;
-  if (typeof value.simpleText === 'string') return value.simpleText.trim() || null;
-  if (Array.isArray(value.runs)) {
-    const text = value.runs
-      .filter(isObject)
-      .map((run) => (typeof run.text === 'string' ? run.text : ''))
-      .join('')
-      .trim();
-    return text || null;
+function bestThumbnail(value: unknown): string | null {
+  const thumbnails = asObject(value);
+  if (!thumbnails) return null;
+  for (const key of ['maxres', 'standard', 'high', 'medium', 'default']) {
+    const url = asObject(thumbnails[key])?.url;
+    if (typeof url === 'string' && /^https?:\/\//.test(url)) return url;
   }
   return null;
 }
-
-function readThumbnail(value: unknown): string | null {
-  const thumbnails: Array<{ url: string; width: number }> = [];
-  walk(value, (entry) => {
-    if (!isObject(entry) || typeof entry.url !== 'string') return;
-    thumbnails.push({
-      url: entry.url,
-      width: typeof entry.width === 'number' ? entry.width : 0,
-    });
-  });
-  thumbnails.sort((left, right) => right.width - left.width);
-  return normalizeYouTubeUrl(thumbnails[0]?.url);
+class YouTubeApiError extends Error {
+  constructor(readonly code: string, message: string) { super(message); this.name = 'YouTubeApiError'; }
 }
-
-function readStartTime(value: unknown): string | null {
-  let result: string | null = null;
-  walk(value, (entry) => {
-    if (!isObject(entry) || result) return;
-    for (const key of ['actualStartTime', 'startTime']) {
-      const candidate = entry[key];
-      if (typeof candidate === 'string' && !Number.isNaN(Date.parse(candidate))) {
-        result = new Date(candidate).toISOString();
-        return;
-      }
-    }
-  });
-  return result;
-}
-
-function parseViewerCount(value: string | null): number {
-  if (!value) return 0;
-  const normalized = value.replace(/,/g, '').trim();
-  const match = normalized.match(/(\d+(?:\.\d+)?)\s*([KMB])?/i);
-  if (!match) return 0;
-
-  const amount = Number(match[1]);
-  const suffix = match[2]?.toUpperCase();
-  const multiplier = suffix === 'B' ? 1_000_000_000 : suffix === 'M' ? 1_000_000 : suffix === 'K' ? 1_000 : 1;
-  return Number.isFinite(amount) ? Math.floor(amount * multiplier) : 0;
-}
-
-function extractQuotedValue(source: string, key: string): string | null {
-  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const match = source.match(new RegExp(`"${escapedKey}"\\s*:\\s*"([^"\\\\]+)"`));
-  return match?.[1] ?? null;
-}
-
-function walk(value: unknown, visit: (value: unknown) => void): void {
-  visit(value);
-  if (Array.isArray(value)) {
-    for (const entry of value) walk(entry, visit);
-    return;
-  }
-  if (!isObject(value)) return;
-  for (const child of Object.values(value)) walk(child, visit);
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function getObject(value: unknown): JsonObject | null {
-  return isObject(value) ? value : null;
-}
-
-function readString(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-function isFutureTimestamp(value: unknown): boolean {
-  const timestamp = readString(value);
-  if (!timestamp) return false;
-  const time = Date.parse(timestamp);
-  return Number.isFinite(time) && time > Date.now() + 60_000;
-}
-
-function normalizeYouTubeUrl(value: string | undefined): string | null {
-  if (!value) return null;
-  if (value.startsWith('//')) return `https:${value}`;
-  if (value.startsWith('/')) return `${YOUTUBE_ORIGIN}${value}`;
-  return value;
+function normalizeError(error: unknown): { code: string; message: string } {
+  return error instanceof YouTubeApiError ? error : { code: 'YOUTUBE_UNKNOWN_ERROR', message: 'Unexpected YouTube API error.' };
 }

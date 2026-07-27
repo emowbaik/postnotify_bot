@@ -75,7 +75,11 @@ async function run(): Promise<void> {
   console.log('🔍 Checking live status...');
   const checks: Array<Promise<LiveCheckResult>> = [
     ...(tiktokEnabled ? tiktokUsernames.map((username) => checkIsLive(username)) : []),
-    ...(youtubeEnabled ? youtubeChannelIds.map((channelId) => checkYouTubeLive(channelId)) : []),
+    ...(youtubeEnabled
+      ? youtubeChannelIds.map((channelId) =>
+          checkYouTubeLive(channelId, process.env.YOUTUBE_API_KEY ?? '')
+        )
+      : []),
   ];
   const results = await Promise.allSettled(checks);
 
