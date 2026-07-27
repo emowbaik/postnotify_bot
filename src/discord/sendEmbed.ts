@@ -9,7 +9,11 @@
  * - Mendukung role mention, user mention, @everyone, dan @here
  */
 
-import type { LiveInfo } from '../types.js';
+import type {
+  LiveCheckError,
+  LiveInfo,
+  PersistedPlatformError,
+} from '../types.js';
 import { generateLivePreview } from './thumbnail-generator.js';
 
 const DISCORD_API = 'https://discord.com/api/v10';
@@ -70,6 +74,74 @@ export async function sendLiveNotification(
   console.log(
     `[Discord] ✅ ${platformLabel(liveInfo)} notification sent for ${displayCreatorName(liveInfo)}`
   );
+}
+
+export async function sendAdminErrorNotification(
+  botToken: string,
+  channelId: string,
+  error: LiveCheckError,
+  mention?: string
+): Promise<void> {
+  await sendJsonMessage(botToken, channelId, {
+    ...(mention?.trim() && { content: mention.trim() }),
+    allowed_mentions: buildAllowedMentions(mention),
+    embeds: [{
+      title: 'PostNotify monitoring error',
+      color: 0xf59e0b,
+      fields: [
+        { name: 'Platform', value: platformLabel(error), inline: true },
+        { name: 'Target', value: truncate(error.username, 1024), inline: true },
+        { name: 'Error code', value: truncate(error.errorCode, 1024) },
+        { name: 'Message', value: truncate(error.message, 1024) },
+      ],
+      footer: { text: 'PostNotify operational alert' },
+      timestamp: new Date().toISOString(),
+    }],
+  });
+}
+
+export async function sendAdminRecoveryNotification(
+  botToken: string,
+  channelId: string,
+  previousError: PersistedPlatformError,
+  mention?: string
+): Promise<void> {
+  await sendJsonMessage(botToken, channelId, {
+    ...(mention?.trim() && { content: mention.trim() }),
+    allowed_mentions: buildAllowedMentions(mention),
+    embeds: [{
+      title: 'PostNotify monitoring recovered',
+      color: 0x22c55e,
+      fields: [
+        { name: 'Platform', value: platformLabel(previousError), inline: true },
+        { name: 'Target', value: truncate(previousError.target, 1024), inline: true },
+        { name: 'Recovered from', value: truncate(previousError.errorCode, 1024) },
+      ],
+      footer: { text: 'PostNotify recovery alert' },
+      timestamp: new Date().toISOString(),
+    }],
+  });
+}
+
+async function sendJsonMessage(
+  botToken: string,
+  channelId: string,
+  payload: DiscordMessagePayload
+): Promise<void> {
+  if (!botToken.trim() || !channelId.trim()) throw new Error('Discord admin route is invalid.');
+  const response = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bot ${botToken}`,
+      'Content-Type': 'application/json',
+      'User-Agent': 'PostNotifyBot/2.0',
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const responseBody = await response.text();
+    throw new Error(`Discord API error ${response.status}: ${responseBody}`);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -181,7 +253,7 @@ function profileButtonLabel(info: LiveInfo): 'Lihat Profil' | 'Lihat Channel' {
   return info.platform === 'youtube' ? 'Lihat Channel' : 'Lihat Profil';
 }
 
-function platformLabel(info: LiveInfo): 'TikTok' | 'YouTube' {
+function platformLabel(info: { platform: 'tiktok' | 'youtube' }): 'TikTok' | 'YouTube' {
   return info.platform === 'youtube' ? 'YouTube' : 'TikTok';
 }
 
