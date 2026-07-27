@@ -227,7 +227,7 @@ async function fetchWatchCandidate(
     if (!isVideoIdLiveInHtml(watchHtml, videoId)) {
       console.warn(
         `[YouTube:watch-fallback] ${videoId} signal diagnostics: ${JSON.stringify(
-          describeLiveSignals(watchHtml, videoId)
+          describeLiveSignals(watchHtml, videoId, channelId)
         )}`
       );
       throw new Error('candidate is not live');
@@ -283,7 +283,11 @@ function isVideoIdLiveInHtml(html: string, videoId: string): boolean {
   return false;
 }
 
-function describeLiveSignals(html: string, videoId: string): JsonObject {
+function describeLiveSignals(
+  html: string,
+  videoId: string,
+  channelId: string
+): JsonObject {
   const encodedVideoId = `"${videoId}"`;
   const videoPositions: number[] = [];
   let offset = 0;
@@ -312,6 +316,19 @@ function describeLiveSignals(html: string, videoId: string): JsonObject {
         allMarkers.map((markerPosition) => Math.abs(markerPosition - videoPosition))
       ))
     : null;
+  const escapedChannelId = channelId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const ownershipPattern = new RegExp(
+    `"channelId"\\s*:\\s*"${escapedChannelId}"`,
+    'g'
+  );
+  const targetChannelMarkers = [...html.matchAll(ownershipPattern)].length;
+  const candidateWindowHasTargetChannel = videoPositions.some((position) => {
+    const start = Math.max(0, position - LIVE_SIGNAL_WINDOW_SIZE);
+    const end = Math.min(html.length, position + LIVE_SIGNAL_WINDOW_SIZE);
+    return new RegExp(
+      `"channelId"\\s*:\\s*"${escapedChannelId}"`
+    ).test(html.slice(start, end));
+  });
 
   return {
     htmlLength: html.length,
@@ -320,6 +337,8 @@ function describeLiveSignals(html: string, videoId: string): JsonObject {
     isLiveMarkers: markerPositions.isLive?.length ?? 0,
     isLiveContentMarkers: markerPositions.isLiveContent?.length ?? 0,
     nearestMarkerDistance: nearestDistance,
+    targetChannelMarkers,
+    candidateWindowHasTargetChannel,
     windowSize: LIVE_SIGNAL_WINDOW_SIZE,
   };
 }
