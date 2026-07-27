@@ -224,12 +224,7 @@ async function fetchWatchCandidate(
     const candidate = watchPlayerData ? findActivePlayerLive(watchPlayerData) : null;
     if (candidate) return candidate;
 
-    if (!isVideoIdLiveInHtml(watchHtml, videoId)) {
-      console.warn(
-        `[YouTube:watch-fallback] ${videoId} signal diagnostics: ${JSON.stringify(
-          describeLiveSignals(watchHtml, videoId, channelId)
-        )}`
-      );
+    if (!isVideoIdLiveInHtml(watchHtml, videoId, channelId)) {
       throw new Error('candidate is not live');
     }
 
@@ -261,8 +256,16 @@ async function fetchWatchCandidate(
   }
 }
 
-function isVideoIdLiveInHtml(html: string, videoId: string): boolean {
+function isVideoIdLiveInHtml(
+  html: string,
+  videoId: string,
+  channelId: string
+): boolean {
   const encodedVideoId = `"${videoId}"`;
+  const escapedChannelId = channelId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const targetChannelPattern = new RegExp(
+    `"channelId"\\s*:\\s*"${escapedChannelId}"`
+  );
   let offset = 0;
 
   while (offset < html.length) {
@@ -275,72 +278,15 @@ function isVideoIdLiveInHtml(html: string, videoId: string): boolean {
     const isLiveNow = /"isLiveNow"\s*:\s*true/.test(window);
     const isLive = /"isLive"\s*:\s*true/.test(window);
     const isLiveContent = /"isLiveContent"\s*:\s*true/.test(window);
+    const belongsToTargetChannel = targetChannelPattern.test(window);
 
-    if (isLiveNow || (isLive && isLiveContent)) return true;
+    if (isLiveNow || (isLive && (isLiveContent || belongsToTargetChannel))) {
+      return true;
+    }
     offset = videoIdIndex + encodedVideoId.length;
   }
 
   return false;
-}
-
-function describeLiveSignals(
-  html: string,
-  videoId: string,
-  channelId: string
-): JsonObject {
-  const encodedVideoId = `"${videoId}"`;
-  const videoPositions: number[] = [];
-  let offset = 0;
-
-  while (offset < html.length) {
-    const position = html.indexOf(encodedVideoId, offset);
-    if (position === -1) break;
-    videoPositions.push(position);
-    offset = position + encodedVideoId.length;
-  }
-
-  const markerPatterns = {
-    isLiveNow: /"isLiveNow"\s*:\s*true/g,
-    isLive: /"isLive"\s*:\s*true/g,
-    isLiveContent: /"isLiveContent"\s*:\s*true/g,
-  };
-  const markerPositions = Object.fromEntries(
-    Object.entries(markerPatterns).map(([name, pattern]) => [
-      name,
-      [...html.matchAll(pattern)].map((match) => match.index),
-    ])
-  ) as Record<string, number[]>;
-  const allMarkers = Object.values(markerPositions).flat();
-  const nearestDistance = videoPositions.length > 0 && allMarkers.length > 0
-    ? Math.min(...videoPositions.flatMap((videoPosition) =>
-        allMarkers.map((markerPosition) => Math.abs(markerPosition - videoPosition))
-      ))
-    : null;
-  const escapedChannelId = channelId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const ownershipPattern = new RegExp(
-    `"channelId"\\s*:\\s*"${escapedChannelId}"`,
-    'g'
-  );
-  const targetChannelMarkers = [...html.matchAll(ownershipPattern)].length;
-  const candidateWindowHasTargetChannel = videoPositions.some((position) => {
-    const start = Math.max(0, position - LIVE_SIGNAL_WINDOW_SIZE);
-    const end = Math.min(html.length, position + LIVE_SIGNAL_WINDOW_SIZE);
-    return new RegExp(
-      `"channelId"\\s*:\\s*"${escapedChannelId}"`
-    ).test(html.slice(start, end));
-  });
-
-  return {
-    htmlLength: html.length,
-    videoIdOccurrences: videoPositions.length,
-    isLiveNowMarkers: markerPositions.isLiveNow?.length ?? 0,
-    isLiveMarkers: markerPositions.isLive?.length ?? 0,
-    isLiveContentMarkers: markerPositions.isLiveContent?.length ?? 0,
-    nearestMarkerDistance: nearestDistance,
-    targetChannelMarkers,
-    candidateWindowHasTargetChannel,
-    windowSize: LIVE_SIGNAL_WINDOW_SIZE,
-  };
 }
 
 interface OEmbedMeta {
