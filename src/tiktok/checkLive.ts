@@ -32,12 +32,15 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
     const roomId = await connection.fetchRoomId();
 
     if (!roomId) {
-      console.warn(`[${username}] ⚠️  Live but no roomId — skipping.`);
-      return { status: 'offline', isLive: false, platform: 'tiktok', username };
+      console.warn(`[${username}] [ERROR] Live status returned no room ID.`);
+      return checkError(username, 'TIKTOK_ROOM_ID_MISSING', 'TikTok live status returned no room ID.');
     }
 
     // Step 3: Fetch full room data via TikTok internal API
     const roomData = await fetchRoomDetail(roomId);
+    if (!roomData) {
+      return checkError(username, 'TIKTOK_ROOM_API_ERROR', 'TikTok room details could not be loaded.');
+    }
 
     const title = roomData?.['title'] ?? username;
     const viewerCount = Number(roomData?.['user_count'] ?? roomData?.['user_count_str'] ?? 0);
@@ -63,26 +66,34 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
       startedAt,
     };
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
-    const lower = msg.toLowerCase();
-
-    const isOffline =
+    const message = error instanceof Error ? error.message : String(error);
+    const lower = message.toLowerCase();
+    const isConfirmedOffline =
       lower.includes('not live') ||
       lower.includes('offline') ||
       lower.includes("isn't online") ||
       lower.includes('ended') ||
       lower.includes('user is not live') ||
-      lower.includes('useroflline') ||
-      lower.includes('timeout');
+      lower.includes('useroflline');
 
-    if (isOffline) {
+    if (isConfirmedOffline) {
       console.log(`[${username}] 💤 Not live.`);
-    } else {
-      console.warn(`[${username}] ⚠️  Error: ${msg}`);
+      return { status: 'offline', isLive: false, platform: 'tiktok', username };
     }
 
-    return { status: 'offline', isLive: false, platform: 'tiktok', username };
+    const isTimeout = lower.includes('timeout')
+      || (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError'));
+    const code = isTimeout ? 'TIKTOK_TIMEOUT' : 'TIKTOK_CONNECTOR_ERROR';
+    const safeMessage = isTimeout
+      ? 'TikTok request timed out.'
+      : 'TikTok live check failed.';
+    console.warn(`[${username}] [ERROR] ${safeMessage}`);
+    return checkError(username, code, safeMessage);
   }
+}
+
+function checkError(username: string, errorCode: string, message: string): LiveCheckResult {
+  return { status: 'error', isLive: false, platform: 'tiktok', username, errorCode, message };
 }
 
 // ─── TikTok internal API ─────────────────────────────────────────────────────
