@@ -12,16 +12,26 @@
 import { env } from './config/env.js';
 import { checkIsLive } from './tiktok/checkLive.js';
 import { checkYouTubeLive } from './youtube/checkLive.js';
-import { sendLiveNotification } from './discord/sendEmbed.js';
 import {
-  loadState,
-  saveState,
+  sendAdminErrorNotification,
+  sendAdminRecoveryNotification,
+  sendLiveNotification,
+} from './discord/sendEmbed.js';
+import {
   buildSessionKey,
+  clearPlatformError,
+  clearYouTubeActiveVideo,
+  getPlatformError,
+  getYouTubeActiveVideo,
   hasNotified,
+  loadState,
   markNotified,
-  pruneOfflineSessions,
+  pruneTargetSessions,
+  saveState,
+  setPlatformError,
+  setYouTubeActiveVideo,
 } from './state.js';
-import type { LiveCheckResult, LiveInfo } from './types.js';
+import type { LiveCheckError, LiveCheckResult, LiveInfo } from './types.js';
 
 const DELAY_BETWEEN_NOTIFICATIONS_MS = 1_500;
 
@@ -95,34 +105,73 @@ async function run(): Promise<void> {
     ...(tiktokEnabled ? tiktokUsernames.map((username) => checkIsLive(username)) : []),
     ...(youtubeEnabled
       ? youtubeChannelIds.map((channelId) =>
-          checkYouTubeLive(channelId, youtubeApiKey ?? '')
+          checkYouTubeLive(
+            channelId,
+            youtubeApiKey ?? '',
+            getYouTubeActiveVideo(state, channelId)
+          )
         )
       : []),
   ];
-  const results = await Promise.allSettled(checks);
+  const settled = await Promise.allSettled(checks);
+  const results: LiveCheckResult[] = settled.map((result, index) => {
+    if (result.status === 'fulfilled') return result.value;
+    const target = [...tiktokUsernames, ...youtubeChannelIds][index] ?? 'unknown';
+    const platform = index < tiktokUsernames.length ? 'tiktok' : 'youtube';
+    return {
+      status: 'error',
+      isLive: false,
+      platform,
+      username: target,
+      errorCode: `${platform.toUpperCase()}_UNEXPECTED_ERROR`,
+      message: `Unexpected ${platform} check failure.`,
+    };
+  });
 
   const liveResults: LiveInfo[] = [];
-  const activeSessionKeys: string[] = [];
+  let offlineCount = 0;
+  let errorCount = 0;
 
-  for (const result of results) {
-    if (result.status === 'rejected') {
-      console.error('Unexpected error during live check:', result.reason);
+  for (const info of results) {
+    if (info.status === 'error') {
+      errorCount++;
+      await handleCheckError(
+        state,
+        info,
+        discordBotToken,
+        adminDiscordChannelId!,
+        adminDiscordMention
+      );
       continue;
     }
 
-    const info = result.value;
+    await handleRecovery(
+      state,
+      info.platform,
+      info.username,
+      discordBotToken,
+      adminDiscordChannelId!,
+      adminDiscordMention
+    );
 
-    if (info.isLive) {
-      liveResults.push(info);
-      activeSessionKeys.push(buildSessionKey(info.platform, info.username, info.roomId));
+    if (info.status === 'offline') {
+      offlineCount++;
+      pruneTargetSessions(state, info.platform, info.username);
+      if (info.platform === 'youtube') clearYouTubeActiveVideo(state, info.username);
+      continue;
+    }
+
+    liveResults.push(info);
+    const sessionKey = buildSessionKey(info.platform, info.username, info.roomId);
+    pruneTargetSessions(state, info.platform, info.username, sessionKey);
+    if (info.platform === 'youtube') {
+      setYouTubeActiveVideo(state, info.username, info.roomId);
     }
   }
 
-  console.log(`\n📊 Results: ${liveResults.length} live / ${totalTargets} total\n`);
-
-  // ─── 2. Prune sessions that are now offline ────────────────────────────────
-  // This resets the "seen" flag so the NEXT live session triggers a new notification.
-  pruneOfflineSessions(state, activeSessionKeys);
+  console.log(
+    `\n📊 Results: ${liveResults.length} live / ${offlineCount} offline / ${errorCount} error / ${totalTargets} total\n`
+  );
 
   // ─── 3. Notify for new live sessions ──────────────────────────────────────
   let notificationsSent = 0;
@@ -167,6 +216,57 @@ async function run(): Promise<void> {
 
   console.log(`\n✅ Done — ${notificationsSent} new notification(s) sent.`);
   console.log(`   Active sessions tracked: ${state.activeLiveSessions.length}`);
+}
+
+async function handleCheckError(
+  state: ReturnType<typeof loadState>,
+  error: LiveCheckError,
+  botToken: string,
+  adminChannelId: string,
+  mention?: string
+): Promise<void> {
+  const fingerprint = `${error.platform}:${error.username}:${error.errorCode}`;
+  if (getPlatformError(state, error.platform, error.username)?.fingerprint === fingerprint) {
+    console.log(`[${error.platform}:${error.username}] Error already reported: ${error.errorCode}`);
+    return;
+  }
+
+  try {
+    await sendAdminErrorNotification(botToken, adminChannelId, error, mention);
+    setPlatformError(state, {
+      fingerprint,
+      platform: error.platform,
+      target: error.username,
+      errorCode: error.errorCode,
+      message: error.message,
+      firstSeenAt: new Date().toISOString(),
+    });
+  } catch (sendError: unknown) {
+    console.error(`[Admin] Failed to send error alert: ${errorMessage(sendError)}`);
+  }
+}
+
+async function handleRecovery(
+  state: ReturnType<typeof loadState>,
+  platform: 'tiktok' | 'youtube',
+  target: string,
+  botToken: string,
+  adminChannelId: string,
+  mention?: string
+): Promise<void> {
+  const previous = getPlatformError(state, platform, target);
+  if (!previous) return;
+
+  try {
+    await sendAdminRecoveryNotification(botToken, adminChannelId, previous, mention);
+    clearPlatformError(state, platform, target);
+  } catch (error: unknown) {
+    console.error(`[Admin] Failed to send recovery alert: ${errorMessage(error)}`);
+  }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function getDiscordRoute(
