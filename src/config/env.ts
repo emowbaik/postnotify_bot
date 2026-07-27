@@ -16,10 +16,12 @@ function optionalEnv(key: string): string | undefined {
 }
 
 function splitCsv(value?: string): string[] {
-  return value
-    ?.split(',')
-    .map((item) => item.trim())
-    .filter(Boolean) ?? [];
+  return [...new Set(
+    value
+      ?.split(',')
+      .map((item) => item.trim())
+      .filter(Boolean) ?? []
+  )];
 }
 
 export const env = {
@@ -48,11 +50,20 @@ export const env = {
    */
   youtubeChannelIds: splitCsv(optionalEnv('YOUTUBE_CHANNEL_IDS')),
 
+  /** Official YouTube Data API v3 key; required when YouTube monitoring is active. */
+  youtubeApiKey: optionalEnv('YOUTUBE_API_KEY'),
+
   /** Discord channel used only for YouTube live notifications. */
   youtubeDiscordChannelId: optionalEnv('YOUTUBE_DISCORD_CHANNEL_ID'),
 
   /** Optional role/user/everyone mention for YouTube notifications. */
   youtubeDiscordMention: optionalEnv('YOUTUBE_DISCORD_MENTION'),
+
+  /** Required operational alert channel when either platform is active. */
+  adminDiscordChannelId: optionalEnv('ADMIN_DISCORD_CHANNEL_ID'),
+
+  /** Optional mention for new operational errors and recovery alerts. */
+  adminDiscordMention: optionalEnv('ADMIN_DISCORD_MENTION'),
 
   /**
    * GitHub PAT used to self-trigger the workflow loop.

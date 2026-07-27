@@ -11,7 +11,7 @@ on:
 
   # ── Self-trigger: the loop fires this event at the end of each run ────────
   repository_dispatch:
-    types: [tiktok-live-check]
+    types: [postnotify-live-check]
 
 jobs:
   check-and-notify:
@@ -34,8 +34,11 @@ jobs:
       TIKTOK_DISCORD_MENTION:    ${{ secrets.TIKTOK_DISCORD_MENTION }}
       TIKTOK_USERNAMES:           ${{ secrets.TIKTOK_USERNAMES }}
       YOUTUBE_CHANNEL_IDS:        ${{ secrets.YOUTUBE_CHANNEL_IDS }}
+      YOUTUBE_API_KEY:            ${{ secrets.YOUTUBE_API_KEY }}
       YOUTUBE_DISCORD_CHANNEL_ID: ${{ secrets.YOUTUBE_DISCORD_CHANNEL_ID }}
       YOUTUBE_DISCORD_MENTION:    ${{ secrets.YOUTUBE_DISCORD_MENTION }}
+      ADMIN_DISCORD_CHANNEL_ID:   ${{ secrets.ADMIN_DISCORD_CHANNEL_ID }}
+      ADMIN_DISCORD_MENTION:      ${{ secrets.ADMIN_DISCORD_MENTION }}
 
     steps:
       # ── 1. Checkout ──────────────────────────────────────────────────────
@@ -121,7 +124,7 @@ jobs:
             -H "Authorization: Bearer $LOOP_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/$REPO/dispatches" \
-            -d '{"event_type":"tiktok-live-check"}')
+            -d '{"event_type":"postnotify-live-check"}')
 
           if [ "$HTTP_STATUS" = "204" ]; then
             echo "✅ Next iteration triggered successfully."

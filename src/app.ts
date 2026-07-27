@@ -43,6 +43,9 @@ async function run(): Promise<void> {
     tiktokDiscordMention,
     youtubeDiscordChannelId,
     youtubeDiscordMention,
+    youtubeApiKey,
+    adminDiscordChannelId,
+    adminDiscordMention,
   } = env;
 
   const tiktokEnabled = tiktokUsernames.length > 0 && Boolean(tiktokDiscordChannelId);
@@ -63,6 +66,21 @@ async function run(): Promise<void> {
     console.warn('[YouTube] ⚠️ YOUTUBE_DISCORD_CHANNEL_ID missing — YouTube monitoring disabled.');
   }
 
+  const configuredTargets = tiktokUsernames.length + youtubeChannelIds.length;
+  if (configuredTargets > 0 && !adminDiscordChannelId) {
+    throw new Error('ADMIN_DISCORD_CHANNEL_ID is required when monitoring is configured.');
+  }
+  if (youtubeChannelIds.length > 0 && !youtubeApiKey) {
+    throw new Error('YOUTUBE_API_KEY is required when YOUTUBE_CHANNEL_IDS is configured.');
+  }
+  if (youtubeChannelIds.length > 10) {
+    throw new Error('YOUTUBE_CHANNEL_IDS supports at most 10 channels to protect API quota.');
+  }
+  const invalidYouTubeId = youtubeChannelIds.find((id) => !/^UC[\w-]{20,}$/.test(id));
+  if (invalidYouTubeId) {
+    throw new Error(`Invalid YouTube channel ID: ${invalidYouTubeId}`);
+  }
+
   if (!tiktokEnabled && !youtubeEnabled) {
     throw new Error(
       'No platform configured. Set a creator list and Discord channel for TikTok or YouTube.'
@@ -77,7 +95,7 @@ async function run(): Promise<void> {
     ...(tiktokEnabled ? tiktokUsernames.map((username) => checkIsLive(username)) : []),
     ...(youtubeEnabled
       ? youtubeChannelIds.map((channelId) =>
-          checkYouTubeLive(channelId, process.env.YOUTUBE_API_KEY ?? '')
+          checkYouTubeLive(channelId, youtubeApiKey ?? '')
         )
       : []),
   ];
