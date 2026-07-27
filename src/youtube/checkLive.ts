@@ -38,7 +38,7 @@ export async function checkYouTubeLive(channelId: string): Promise<LiveCheckResu
 
   if (!/^UC[\w-]{20,}$/.test(normalizedChannelId)) {
     console.warn(`[YouTube:${normalizedChannelId}] [WARN] Invalid channel ID - skipping.`);
-    return { isLive: false, username: normalizedChannelId };
+    return { status: 'offline', isLive: false, platform: 'youtube', username: normalizedChannelId };
   }
 
   try {
@@ -66,16 +66,17 @@ export async function checkYouTubeLive(channelId: string): Promise<LiveCheckResu
     }
 
     console.log(`[YouTube:${normalizedChannelId}] [OFFLINE] Not live.`);
-    return { isLive: false, username: normalizedChannelId };
+    return { status: 'offline', isLive: false, platform: 'youtube', username: normalizedChannelId };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn(`[YouTube:${normalizedChannelId}] [ERROR] ${message}`);
-    return { isLive: false, username: normalizedChannelId };
+    return { status: 'offline', isLive: false, platform: 'youtube', username: normalizedChannelId };
   }
 }
 
 function toLiveInfo(channelId: string, candidate: YouTubeLiveCandidate): LiveCheckResult {
   const info: LiveCheckResult = {
+    status: 'live',
     isLive: true,
     platform: 'youtube',
     username: channelId,

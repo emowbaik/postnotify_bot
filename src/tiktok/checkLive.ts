@@ -25,7 +25,7 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
 
     if (!isLive) {
       console.log(`[${username}] 💤 Not live.`);
-      return { isLive: false, username };
+      return { status: 'offline', isLive: false, platform: 'tiktok', username };
     }
 
     // Step 2: Get roomId
@@ -33,7 +33,7 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
 
     if (!roomId) {
       console.warn(`[${username}] ⚠️  Live but no roomId — skipping.`);
-      return { isLive: false, username };
+      return { status: 'offline', isLive: false, platform: 'tiktok', username };
     }
 
     // Step 3: Fetch full room data via TikTok internal API
@@ -48,6 +48,7 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
     console.log(`[${username}] ✅ LIVE — room: ${roomId}, viewers: ${viewerCount}, title: ${title}`);
 
     return {
+      status: 'live',
       isLive: true,
       platform: 'tiktok',
       username,
@@ -80,7 +81,7 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
       console.warn(`[${username}] ⚠️  Error: ${msg}`);
     }
 
-    return { isLive: false, username };
+    return { status: 'offline', isLive: false, platform: 'tiktok', username };
   }
 }
 

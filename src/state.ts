@@ -17,6 +17,8 @@ const STATE_FILE = path.resolve(
 
 const DEFAULT_STATE: BotState = {
   activeLiveSessions: [],
+  youtubeActiveVideos: {},
+  platformErrors: {},
 };
 
 /** Load the current state from state.json, falling back to empty defaults. */
@@ -29,12 +31,18 @@ export function loadState(): BotState {
     const raw = readFileSync(STATE_FILE, 'utf8').trim();
     if (!raw) return { ...DEFAULT_STATE };
 
-    const parsed = JSON.parse(raw) as { activeLiveSessions?: unknown };
+    const parsed = JSON.parse(raw) as {
+      activeLiveSessions?: unknown;
+      youtubeActiveVideos?: unknown;
+      platformErrors?: unknown;
+    };
 
     return {
       activeLiveSessions: Array.isArray(parsed.activeLiveSessions)
         ? (parsed.activeLiveSessions as string[])
         : [],
+      youtubeActiveVideos: {},
+      platformErrors: {},
     };
   } catch {
     console.warn('Failed to parse state.json — starting fresh.');
