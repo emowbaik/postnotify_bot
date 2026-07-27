@@ -7,11 +7,13 @@ Automated Discord notification bot that sends rich alerts when TikTok creators o
 ## Features
 
 - 🔴 Automatic TikTok and YouTube live detection (~5-minute polling interval)
-- ▶️ Active YouTube livestream and Premiere detection through unofficial internal web API data
+- ▶️ Official YouTube Data API v3 detection through each channel's uploads playlist
 - 🧭 Separate Discord channel and mention routing for YouTube alerts
 - 🖼️ Platform-aware 1280×720 preview image with blurred background, avatar, title, and statistics
 - 📨 Discord rich embeds with viewer count, start time, platform, and action buttons
 - 🔕 Platform-prefixed session deduplication prevents repeated notifications for one broadcast
+- 🩺 Deduplicated admin error alerts and one-time recovery notifications
+- ⚡ Persistent active-video cache reduces YouTube API quota usage while a stream remains live
 - 🔒 Workflow concurrency guard prevents overlapping runs and duplicate sends
 - 💾 Persistent notification state through repository-backed `state.json`
 - 🧹 Automatic cleanup keeps only the latest workflow run
@@ -83,9 +85,12 @@ Go to your repository → **Settings → Secrets and variables → Actions → N
 | `TIKTOK_USERNAMES` | ❌ | Comma-separated TikTok usernames without `@`; enables TikTok monitoring |
 | `TIKTOK_DISCORD_CHANNEL_ID` | Conditional | Required when `TIKTOK_USERNAMES` is set |
 | `TIKTOK_DISCORD_MENTION` | ❌ | Optional ping for TikTok alerts |
-| `YOUTUBE_CHANNEL_IDS` | ❌ | Comma-separated YouTube channel IDs beginning with `UC`; enables YouTube monitoring |
+| `YOUTUBE_CHANNEL_IDS` | ❌ | Comma-separated immutable `UC...` channel IDs; maximum 10 |
+| `YOUTUBE_API_KEY` | Conditional | Required when `YOUTUBE_CHANNEL_IDS` is set; YouTube Data API v3 key |
 | `YOUTUBE_DISCORD_CHANNEL_ID` | Conditional | Required when `YOUTUBE_CHANNEL_IDS` is set |
 | `YOUTUBE_DISCORD_MENTION` | ❌ | Optional ping for YouTube alerts |
+| `ADMIN_DISCORD_CHANNEL_ID` | Conditional | Required whenever TikTok or YouTube monitoring is configured |
+| `ADMIN_DISCORD_MENTION` | ❌ | Optional ping for new operational errors and recovery alerts |
 
 **Creator examples:**
 
@@ -108,8 +113,11 @@ YouTube-only example:
 DISCORD_BOT_TOKEN=your_bot_token
 LOOP_TOKEN=your_github_pat
 YOUTUBE_CHANNEL_IDS=UCxxxxxxxxxxxxxxxxxxxxxx
+YOUTUBE_API_KEY=your_google_api_key
 YOUTUBE_DISCORD_CHANNEL_ID=123456789012345678
 YOUTUBE_DISCORD_MENTION=<@&123456789012345678>
+ADMIN_DISCORD_CHANNEL_ID=123456789012345679
+ADMIN_DISCORD_MENTION=<@&123456789012345678>
 ```
 
 For YouTube-only mode, leave `TIKTOK_USERNAMES`, `TIKTOK_DISCORD_CHANNEL_ID`, and `TIKTOK_DISCORD_MENTION` unset.
@@ -184,11 +192,28 @@ Update `TIKTOK_USERNAMES` or `YOUTUBE_CHANNEL_IDS` with comma-separated values. 
 
 ### YouTube Detection
 
-YouTube checks use the channel `/live` page and embedded `ytInitialData` first. If no active renderer is found, the bot performs one bounded Innertube `browse` request using the page's internal client key. If a channel page exposes video IDs but not active metadata, the bot checks up to three matching watch pages and only reports a stream when their player response confirms it is live. No official YouTube API key or quota is required.
+YouTube monitoring uses the official **YouTube Data API v3**. Create a Google Cloud project, enable YouTube Data API v3, create an API key, then restrict that key to the YouTube Data API v3 service. Do not add an IP restriction when using GitHub-hosted runners because their outbound IP addresses are dynamic.
 
-GitHub Actions runners can receive a different YouTube channel-page response from local browsers. The watch-page fallback handles the observed case, but YouTube can change or restrict unofficial responses without notice.
+For each immutable `UC...` channel ID, the bot derives the uploads playlist by replacing `UC` with `UU`. It reads the latest 20 upload IDs through `playlistItems.list`, then checks all IDs in one `videos.list` request. Only videos marked `live` with `actualStartTime` and without `actualEndTime` are reported. Scheduled streams and Premieres that have not started are ignored.
 
-The detector only reports broadcasts marked active now. Scheduled streams and Premieres that have not started are ignored. Viewer count or start time may be unavailable in unofficial responses; alerts still send with safe fallback values.
+When a live video is found, its ID is saved in `state.json`. The next cycle checks that ID directly through `videos.list`, avoiding the uploads scan while the same broadcast remains active. `channels.list` is called when live is found to retrieve the canonical channel name and avatar.
+
+Approximate quota usage at a five-minute interval:
+
+```text
+Normal scan:       2 units per channel/check
+Known active live: 1 unit per channel/check
+Channel metadata: +1 unit when live metadata is built
+10 channels:       approximately 5,760 units/day for normal scans
+```
+
+The project limits configuration to 10 YouTube channels to stay below the default 10,000-unit daily quota under normal polling.
+
+### Operational Error Alerts
+
+`ADMIN_DISCORD_CHANNEL_ID` receives one alert per stable platform/target/error code. Repeated identical failures are suppressed through `state.json`. A successful later check sends one recovery message and clears the error fingerprint. Failed checks preserve prior live-session and active-video state, preventing duplicate live alerts after transient outages.
+
+TikTok timeouts and connector/API failures are operational errors, not offline results. Confirmed offline status never creates an admin alert.
 
 ### Separate Discord Routing
 
@@ -243,9 +268,9 @@ postnotify_bot/
     ├── tiktok/
     │   └── checkLive.ts               # TikTok connector and webcast API detector
     ├── youtube/
-    │   └── checkLive.ts               # YouTube page data and Innertube detector
+    │   └── checkLive.ts               # Official YouTube Data API v3 detector
     └── discord/
-        ├── sendEmbed.ts               # Platform-aware multipart Discord sender
+        ├── sendEmbed.ts               # Live and operational Discord alerts
         └── thumbnail-generator.ts     # Platform-aware 1280×720 JPEG generator
 ```
 
@@ -263,15 +288,15 @@ Dependencies are installed automatically during workflow runs.
 
 ## ⚠️ Important Notes
 
-- **Unofficial APIs:** TikTok checks use `tiktok-live-connector` and internal webcast data. YouTube checks use public page data and unofficial Innertube endpoints. Either platform can change its payload without notice.
-- **YouTube availability:** GitHub Actions IP addresses may occasionally receive consent pages, throttling, or blocking. A failed channel check logs a warning instead of crashing the full run.
-- **Viewer metadata:** YouTube viewer count and exact start time are best-effort because unofficial payloads do not always expose them.
+- **TikTok interface:** TikTok checks still use `tiktok-live-connector` and internal webcast data. TikTok can change these payloads without notice.
+- **YouTube quota:** YouTube checks use the official Data API v3 and are subject to the Google Cloud project's daily quota.
+- **API key security:** Restrict `YOUTUBE_API_KEY` to YouTube Data API v3. Never commit it or print full API request URLs.
 - **GitHub Actions minutes:** Public repositories receive unlimited standard Actions minutes. Private repository quotas depend on the account plan; a continuously sleeping loop consumes billed runner time.
-- **State management:** `state.json` stores `platform:creator:broadcast` keys and is committed after each run.
+- **State management:** `state.json` stores notified sessions, active YouTube video IDs, and deduplicated operational errors; it is committed after each run.
 - **Concurrency:** `cancel-in-progress: true` allows only one active workflow in the `live-monitor` group.
 
 ---
 
 ## Disclaimer
 
-This project depends on unofficial TikTok and YouTube interfaces. Use it at your own risk, follow both platforms' Terms of Service, and expect detector maintenance when upstream payloads change.
+TikTok detection depends on unofficial interfaces. YouTube detection uses the official Data API v3 and remains subject to Google's API terms, quota, and availability. Follow both platforms' Terms of Service.
