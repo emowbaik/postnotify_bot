@@ -1,5 +1,9 @@
 {
-  "activeLiveSessions": [],
-  "youtubeActiveVideos": {},
+  "activeLiveSessions": [
+    "youtube:UCbbb5_EsXnluFbpfVFUSjZw:kn3wLBGp6XE"
+  ],
+  "youtubeActiveVideos": {
+    "UCbbb5_EsXnluFbpfVFUSjZw": "kn3wLBGp6XE"
+  },
   "platformErrors": {}
 }
