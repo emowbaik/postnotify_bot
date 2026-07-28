@@ -248,7 +248,7 @@ function createFallbackAvatar(displayName: string, accentColor: string): Buffer 
 function createTextOverlay(info: LiveInfo): Buffer {
   const creatorName = displayCreatorName(info);
   const rawTitle = stripEmoji(info.title?.trim() || `${creatorName} sedang melakukan siaran langsung`);
-  const titleLines = wrapText(rawTitle, 27, 2);
+  const titleLines = wrapTextByWidth(rawTitle, 650, 54, 2);
 
   const firstTitleLine = escapeXml(titleLines[0] ?? '');
   const secondTitleLine = escapeXml(titleLines[1] ?? '');
@@ -272,7 +272,7 @@ function createTextOverlay(info: LiveInfo): Buffer {
         font-family="Noto Sans, Noto Sans CJK JP, DejaVu Sans, sans-serif" font-size="19" font-weight="500">${creatorRole}</text>
 
       <!-- Live badge -->
-      <rect x="72" y="184" width="226" height="52" rx="26" fill="${accentColor}"/>
+      <rect x="72" y="184" width="246" height="52" rx="26" fill="${accentColor}"/>
       <circle cx="102" cy="210" r="8" fill="#ffffff"/>
       <text x="124" y="218" fill="#ffffff"
         font-family="Noto Sans, Noto Sans CJK JP, DejaVu Sans, sans-serif" font-size="20" font-weight="700" letter-spacing="1">LIVE SEKARANG</text>
@@ -400,7 +400,12 @@ function formatLiveDuration(startedAt: string): string {
   return 'Baru dimulai';
 }
 
-function wrapText(input: string, maximumCharacters: number, maximumLines: number): string[] {
+function wrapTextByWidth(
+  input: string,
+  maximumWidth: number,
+  fontSize: number,
+  maximumLines: number
+): string[] {
   const cleanInput = input.replace(/\s+/g, ' ').trim();
   if (!cleanInput) return ['Live Now'];
 
@@ -412,23 +417,46 @@ function wrapText(input: string, maximumCharacters: number, maximumLines: number
     const word = words[index]!;
     const candidate = currentLine ? `${currentLine} ${word}` : word;
 
-    if (candidate.length <= maximumCharacters) {
+    if (estimatedTextWidth(candidate, fontSize) <= maximumWidth) {
       currentLine = candidate;
       continue;
     }
 
     if (currentLine) lines.push(currentLine);
-    currentLine = word.length > maximumCharacters ? truncate(word, maximumCharacters) : word;
+    currentLine = fitTextToWidth(word, maximumWidth, fontSize);
 
     if (lines.length === maximumLines - 1) {
-      const remainingWords = [currentLine, ...words.slice(index + 1)].join(' ');
-      lines.push(truncate(remainingWords, maximumCharacters));
+      const remaining = [currentLine, ...words.slice(index + 1)].join(' ');
+      lines.push(fitTextToWidth(remaining, maximumWidth, fontSize));
       return lines;
     }
   }
 
   if (currentLine && lines.length < maximumLines) lines.push(currentLine);
   return lines.slice(0, maximumLines);
+}
+
+function estimatedTextWidth(value: string, fontSize: number): number {
+  return [...value].reduce((width, character) => {
+    if (/\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Hangul}/u.test(character)) {
+      return width + fontSize;
+    }
+    if (/[WM@%&]/.test(character)) return width + fontSize * 0.9;
+    if (/[A-Z0-9]/.test(character)) return width + fontSize * 0.68;
+    if (/\s/.test(character)) return width + fontSize * 0.32;
+    return width + fontSize * 0.56;
+  }, 0);
+}
+
+function fitTextToWidth(value: string, maximumWidth: number, fontSize: number): string {
+  if (estimatedTextWidth(value, fontSize) <= maximumWidth) return value;
+  const suffix = '…';
+  let fitted = '';
+  for (const character of value) {
+    if (estimatedTextWidth(fitted + character + suffix, fontSize) > maximumWidth) break;
+    fitted += character;
+  }
+  return fitted.trimEnd() + suffix;
 }
 
 function truncate(value: string, maximumLength: number): string {
