@@ -74,7 +74,28 @@ Required so the workflow can trigger itself.
 4. Check scope: ✅ `repo` (all sub-scopes)
 5. Copy the generated token
 
-### Step 4 — Configure GitHub Secrets
+### Step 4 — Get a YouTube Data API v3 Key
+
+Required only when YouTube monitoring is enabled.
+
+1. Open the [Google Cloud Console](https://console.cloud.google.com/)
+2. Select an existing project or click **New Project**, enter a project name, then create it
+3. Open [APIs & Services → Library](https://console.cloud.google.com/apis/library)
+4. Search for **YouTube Data API v3**, open it, then click **Enable**
+5. Open [APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials)
+6. Click **Create Credentials → API key**
+7. Copy the generated key; this value becomes the `YOUTUBE_API_KEY` GitHub Secret
+8. Click **Edit API key** or **Restrict key**
+9. Under **Application restrictions**, select **None** because GitHub-hosted runner IP addresses are dynamic
+10. Under **API restrictions**, select **Restrict key**, choose **YouTube Data API v3**, then click **Save**
+
+> [!IMPORTANT]
+> Never commit the API key to the repository or place it directly in the workflow file. Store it only as the `YOUTUBE_API_KEY` GitHub Secret.
+
+> [!NOTE]
+> New Google Cloud projects normally receive 10,000 YouTube Data API quota units per day. This bot limits YouTube monitoring to 10 channels to stay within that default quota under normal polling.
+
+### Step 5 — Configure GitHub Secrets
 
 Go to your repository → **Settings → Secrets and variables → Actions → New repository secret**
 
@@ -140,7 +161,7 @@ Find a YouTube channel ID in the channel page source, an About-page URL, or thro
 
 Leave either mention secret unset to send that platform's notification without a ping.
 
-### Step 5 — Enable GitHub Actions
+### Step 6 — Enable GitHub Actions
 
 1. Go to the **Actions** tab in your repository
 2. Click **"I understand my workflows, go ahead and enable them"** if prompted
