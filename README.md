@@ -84,10 +84,9 @@ Required only when YouTube monitoring is enabled.
 4. Search for **YouTube Data API v3**, open it, then click **Enable**
 5. Open [APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials)
 6. Click **Create Credentials → API key**
-7. Copy the generated key; this value becomes the `YOUTUBE_API_KEY` GitHub Secret
-8. Click **Edit API key** or **Restrict key**
 9. Under **Application restrictions**, select **None** because GitHub-hosted runner IP addresses are dynamic
-10. Under **API restrictions**, select **Restrict key**, choose **YouTube Data API v3**, then click **Save**
+10. Under **API restrictions**, select **Restrict key**, choose **YouTube Data API v3**, then click **Create**
+11. Copy the generated key; this value becomes the `YOUTUBE_API_KEY` GitHub Secret
 
 > [!IMPORTANT]
 > Never commit the API key to the repository or place it directly in the workflow file. Store it only as the `YOUTUBE_API_KEY` GitHub Secret.
