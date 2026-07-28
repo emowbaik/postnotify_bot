@@ -57,10 +57,10 @@ jobs:
           version: '1.x'
 
       # ── 3. Install dependencies and multilingual fonts ────────────────────
-      - name: Install CJK fonts
+      - name: Install multilingual fonts
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          sudo apt-get install -y --no-install-recommends fonts-noto-core fonts-noto-cjk
           fc-cache -f
 
       - name: Install dependencies
