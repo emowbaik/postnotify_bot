@@ -184,9 +184,9 @@ function createFallbackPoster(displayName: string, info: LiveInfo): Buffer {
       <rect width="${POSTER_WIDTH}" height="${POSTER_HEIGHT}" rx="28" fill="url(#posterGlow)"/>
       <circle cx="${POSTER_WIDTH / 2}" cy="${POSTER_HEIGHT / 2 - 35}" r="98" fill="#ffffff" fill-opacity="0.12"/>
       <text x="50%" y="${POSTER_HEIGHT / 2 + 5}" text-anchor="middle" fill="#ffffff"
-        font-family="Arial, DejaVu Sans, sans-serif" font-size="118" font-weight="700">${initial}</text>
+        font-family="Noto Sans CJK JP, Noto Sans, Arial, DejaVu Sans, sans-serif" font-size="118" font-weight="700">${initial}</text>
       <text x="50%" y="${POSTER_HEIGHT - 70}" text-anchor="middle" fill="#ffffff" fill-opacity="0.80"
-        font-family="Arial, DejaVu Sans, sans-serif" font-size="24" font-weight="700" letter-spacing="2">${platform}</text>
+        font-family="Noto Sans CJK JP, Noto Sans, Arial, DejaVu Sans, sans-serif" font-size="24" font-weight="700" letter-spacing="2">${platform}</text>
     </svg>
   `);
 }
@@ -236,7 +236,7 @@ function createFallbackAvatar(displayName: string, accentColor: string): Buffer 
     <svg width="${AVATAR_SIZE}" height="${AVATAR_SIZE}" xmlns="http://www.w3.org/2000/svg">
       <circle cx="${AVATAR_SIZE / 2}" cy="${AVATAR_SIZE / 2}" r="${AVATAR_SIZE / 2}" fill="${accentColor}"/>
       <text x="${AVATAR_SIZE / 2}" y="59" text-anchor="middle" fill="#ffffff"
-        font-family="Arial, DejaVu Sans, sans-serif" font-size="44" font-weight="700">${initial}</text>
+        font-family="Noto Sans CJK JP, Noto Sans, Arial, DejaVu Sans, sans-serif" font-size="44" font-weight="700">${initial}</text>
     </svg>
   `);
 }
@@ -267,27 +267,27 @@ function createTextOverlay(info: LiveInfo): Buffer {
 
       <!-- Username -->
       <text x="180" y="102" fill="#ffffff"
-        font-family="Arial, DejaVu Sans, sans-serif" font-size="28" font-weight="700">${escapedCreatorName}</text>
+        font-family="Noto Sans CJK JP, Noto Sans, Arial, DejaVu Sans, sans-serif" font-size="28" font-weight="700">${escapedCreatorName}</text>
       <text x="180" y="134" fill="#ffffff" fill-opacity="0.58"
-        font-family="Arial, DejaVu Sans, sans-serif" font-size="19" font-weight="500">${creatorRole}</text>
+        font-family="Noto Sans CJK JP, Noto Sans, Arial, DejaVu Sans, sans-serif" font-size="19" font-weight="500">${creatorRole}</text>
 
       <!-- Live badge -->
       <rect x="72" y="184" width="226" height="52" rx="26" fill="${accentColor}"/>
       <circle cx="102" cy="210" r="8" fill="#ffffff"/>
       <text x="124" y="218" fill="#ffffff"
-        font-family="Arial, DejaVu Sans, sans-serif" font-size="20" font-weight="700" letter-spacing="1">LIVE SEKARANG</text>
+        font-family="Noto Sans CJK JP, Noto Sans, Arial, DejaVu Sans, sans-serif" font-size="20" font-weight="700" letter-spacing="1">LIVE SEKARANG</text>
 
       <!-- Heading -->
       <text x="72" y="303" fill="#ffffff" fill-opacity="0.62"
-        font-family="Arial, DejaVu Sans, sans-serif" font-size="25" font-weight="600">Sedang menyiarkan</text>
+        font-family="Noto Sans CJK JP, Noto Sans, Arial, DejaVu Sans, sans-serif" font-size="25" font-weight="600">Sedang menyiarkan</text>
 
       <!-- Title line 1 -->
       <text x="72" y="370" fill="#ffffff"
-        font-family="Arial, DejaVu Sans, sans-serif" font-size="54" font-weight="800">${firstTitleLine}</text>
+        font-family="Noto Sans CJK JP, Noto Sans, Arial, DejaVu Sans, sans-serif" font-size="54" font-weight="800">${firstTitleLine}</text>
 
       ${secondTitleLine ? `
       <text x="72" y="435" fill="#ffffff"
-        font-family="Arial, DejaVu Sans, sans-serif" font-size="54" font-weight="800">${secondTitleLine}</text>
+        font-family="Noto Sans CJK JP, Noto Sans, Arial, DejaVu Sans, sans-serif" font-size="54" font-weight="800">${secondTitleLine}</text>
       ` : ''}
 
       <!-- Divider -->
@@ -295,26 +295,26 @@ function createTextOverlay(info: LiveInfo): Buffer {
 
       <!-- Viewer statistics -->
       <text x="72" y="548" fill="#ffffff" fill-opacity="0.50"
-        font-family="Arial, DejaVu Sans, sans-serif" font-size="17" font-weight="700" letter-spacing="1">PENONTON</text>
+        font-family="Noto Sans CJK JP, Noto Sans, Arial, DejaVu Sans, sans-serif" font-size="17" font-weight="700" letter-spacing="1">PENONTON</text>
       <text x="72" y="588" fill="#ffffff"
-        font-family="Arial, DejaVu Sans, sans-serif" font-size="30" font-weight="700">${viewers}</text>
+        font-family="Noto Sans CJK JP, Noto Sans, Arial, DejaVu Sans, sans-serif" font-size="30" font-weight="700">${viewers}</text>
 
       <!-- Live duration -->
       <text x="320" y="548" fill="#ffffff" fill-opacity="0.50"
-        font-family="Arial, DejaVu Sans, sans-serif" font-size="17" font-weight="700" letter-spacing="1">DURASI LIVE</text>
+        font-family="Noto Sans CJK JP, Noto Sans, Arial, DejaVu Sans, sans-serif" font-size="17" font-weight="700" letter-spacing="1">DURASI LIVE</text>
       <text x="320" y="588" fill="#ffffff"
-        font-family="Arial, DejaVu Sans, sans-serif" font-size="30" font-weight="700">${duration}</text>
+        font-family="Noto Sans CJK JP, Noto Sans, Arial, DejaVu Sans, sans-serif" font-size="30" font-weight="700">${duration}</text>
 
       <!-- Platform -->
       <text x="570" y="548" fill="#ffffff" fill-opacity="0.50"
-        font-family="Arial, DejaVu Sans, sans-serif" font-size="17" font-weight="700" letter-spacing="1">PLATFORM</text>
+        font-family="Noto Sans CJK JP, Noto Sans, Arial, DejaVu Sans, sans-serif" font-size="17" font-weight="700" letter-spacing="1">PLATFORM</text>
       <text x="570" y="588" fill="#ffffff"
-        font-family="Arial, DejaVu Sans, sans-serif" font-size="30" font-weight="700">${platform}</text>
+        font-family="Noto Sans CJK JP, Noto Sans, Arial, DejaVu Sans, sans-serif" font-size="30" font-weight="700">${platform}</text>
 
       <!-- Bottom CTA -->
       <circle cx="82" cy="654" r="6" fill="${accentColor}"/>
       <text x="102" y="661" fill="#ffffff" fill-opacity="0.65"
-        font-family="Arial, DejaVu Sans, sans-serif" font-size="20" font-weight="500">Tonton sekarang sebelum siaran berakhir</text>
+        font-family="Noto Sans CJK JP, Noto Sans, Arial, DejaVu Sans, sans-serif" font-size="20" font-weight="500">Tonton sekarang sebelum siaran berakhir</text>
     </svg>
   `);
 }
