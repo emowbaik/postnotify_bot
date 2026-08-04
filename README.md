@@ -10,6 +10,7 @@ Automated Discord notification bot that sends rich alerts when TikTok creators o
 - ▶️ Official YouTube Data API v3 detection through each channel's uploads playlist
 - 🧭 Separate Discord channel and mention routing for YouTube alerts
 - 🖼️ Platform-aware 1280×720 preview image with blurred background, avatar, title, and statistics
+- 🌏 Multilingual preview text covering Latin, Cyrillic, Greek, CJK, Korean, Arabic, Hebrew, Indic, and Thai titles
 - 📨 Discord rich embeds with viewer count, start time, platform, and action buttons
 - 🔕 Platform-prefixed session deduplication prevents repeated notifications for one broadcast
 - 🩺 Deduplicated admin error alerts and one-time recovery notifications
@@ -29,7 +30,11 @@ Automated Discord notification bot that sends rich alerts when TikTok creators o
         ↓
 [Check configured TikTok usernames and YouTube channel IDs in parallel]
         ↓
-[Detect active TikTok lives, YouTube lives, and airing Premieres]
+[Classify each result as live, offline, or operational error]
+        ↓
+[On error: preserve prior state and send one deduplicated admin alert]
+        ↓
+[On recovery: send one recovery alert and clear the error fingerprint]
         ↓
 [Ignore session if platform:creator:broadcast ID already exists in state]
         ↓
@@ -235,6 +240,12 @@ The project limits configuration to 10 YouTube channels to stay below the defaul
 
 TikTok timeouts and connector/API failures are operational errors, not offline results. Confirmed offline status never creates an admin alert.
 
+### Preview Image Text
+
+The workflow installs `fonts-noto-core` and `fonts-noto-cjk` before generating previews, so titles in Latin, Cyrillic, Greek, Chinese, Japanese, Korean, Arabic, Hebrew, Indic, and Thai render as real glyphs instead of placeholder boxes. Title lines wrap by estimated rendered width rather than character count, keeping long or wide-glyph titles clear of the right-side poster.
+
+Emoji are removed from the generated image because Sharp cannot reliably rasterize color emoji fonts. The Discord embed title still shows the original emoji.
+
 ### Separate Discord Routing
 
 TikTok alerts use `TIKTOK_DISCORD_CHANNEL_ID` and `TIKTOK_DISCORD_MENTION`. YouTube alerts use `YOUTUBE_DISCORD_CHANNEL_ID` and `YOUTUBE_DISCORD_MENTION`. Both routes share `DISCORD_BOT_TOKEN`.
@@ -275,14 +286,14 @@ If GitHub disables the workflow anyway:
 postnotify_bot/
 ├── package.json                        # Dependencies and scripts
 ├── tsconfig.json                       # TypeScript configuration
-├── state.json                          # Persisted platform session keys
+├── state.json                          # Notified sessions, active video IDs, error fingerprints
 ├── .github/
 │   └── workflows/
-│       └── live-monitor.yml            # Loop, cron, Discord secrets, and keepalive
+│       └── live-monitor.yml            # Loop, cron, fonts, secrets, and keepalive
 └── src/
-    ├── app.ts                          # Multi-platform orchestration and routing
-    ├── types.ts                        # Shared live result and state types
-    ├── state.ts                        # State load, save, migration, and deduplication
+    ├── app.ts                          # Orchestration, state transitions, and alert routing
+    ├── types.ts                        # Live, offline, error, and persisted state types
+    ├── state.ts                        # State load, save, migration, cache, and deduplication
     ├── config/
     │   └── env.ts                      # GitHub Actions environment validation
     ├── tiktok/
@@ -291,7 +302,7 @@ postnotify_bot/
     │   └── checkLive.ts               # Official YouTube Data API v3 detector
     └── discord/
         ├── sendEmbed.ts               # Live and operational Discord alerts
-        └── thumbnail-generator.ts     # Platform-aware 1280×720 JPEG generator
+        └── thumbnail-generator.ts     # Multilingual 1280×720 JPEG generator
 ```
 
 ---
@@ -300,7 +311,8 @@ postnotify_bot/
 
 - **Bun** (used in GitHub Actions via `oven-sh/setup-bun@v2`)
 - **Node.js 18+** compatible runtime (for native `fetch`, `FormData`, `Blob`)
-- `sharp` for image generation (installed via `npm install sharp`)
+- `sharp` for image generation
+- Noto fonts for non-Latin preview text; GitHub Actions installs `fonts-noto-core` and `fonts-noto-cjk` automatically, and local runs need equivalent system fonts
 
 Dependencies are installed automatically during workflow runs.
 
