@@ -139,8 +139,8 @@ jobs:
         run: |
           mapfile -t run_ids < <(
             gh api --paginate \
-              "repos/$REPO/actions/workflows/$WORKFLOW_FILE/runs?status=completed&per_page=100" \
-              --jq '.workflow_runs[].id'
+              "repos/$REPO/actions/workflows/$WORKFLOW_FILE/runs?per_page=100" \
+              --jq '.workflow_runs[] | select(.status == "completed") | .id'
           )
 
           echo "Found ${#run_ids[@]} completed monitor run(s) to delete."
