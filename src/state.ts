@@ -105,9 +105,30 @@ export function pruneTargetSessions(
   activeSessionKey?: string
 ): void {
   const prefix = `${platform}:${target}:`;
-  state.activeLiveSessions = state.activeLiveSessions.filter(
-    (key) => !key.startsWith(prefix) || key === activeSessionKey
-  );
+  const activeLegacyKey = platform === 'tiktok' && activeSessionKey?.startsWith(prefix)
+    ? activeSessionKey.slice('tiktok:'.length)
+    : undefined;
+  let migrateActiveLegacyKey = false;
+
+  state.activeLiveSessions = state.activeLiveSessions.filter((key) => {
+    if (key.startsWith(prefix)) return key === activeSessionKey;
+    if (!isLegacyTikTokTargetKey(key, platform, target)) return true;
+    if (key === activeLegacyKey) migrateActiveLegacyKey = true;
+    return false;
+  });
+
+  if (
+    migrateActiveLegacyKey
+    && activeSessionKey
+    && !state.activeLiveSessions.includes(activeSessionKey)
+  ) {
+    state.activeLiveSessions.push(activeSessionKey);
+  }
+}
+
+function isLegacyTikTokTargetKey(key: string, platform: Platform, target: string): boolean {
+  if (platform !== 'tiktok' || !key.startsWith(`${target}:`)) return false;
+  return key.indexOf(':', target.length + 1) === -1;
 }
 
 /** Legacy whole-run pruning retained until orchestration migration. */

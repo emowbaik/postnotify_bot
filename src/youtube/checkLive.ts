@@ -119,7 +119,13 @@ function bestThumbnail(value: unknown): string | null {
   return null;
 }
 class YouTubeApiError extends Error {
-  constructor(readonly code: string, message: string) { super(message); this.name = 'YouTubeApiError'; }
+  readonly code: string;
+
+  constructor(code: string, message: string) {
+    super(message);
+    this.name = 'YouTubeApiError';
+    this.code = code;
+  }
 }
 function normalizeError(error: unknown): { code: string; message: string } {
   return error instanceof YouTubeApiError ? error : { code: 'YOUTUBE_UNKNOWN_ERROR', message: 'Unexpected YouTube API error.' };

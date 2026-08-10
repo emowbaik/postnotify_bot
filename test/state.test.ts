@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { loadState, saveState } from '../src/state.ts';
+import { loadState, pruneTargetSessions, saveState } from '../src/state.ts';
 import type { BotState } from '../src/types.ts';
 
 function withTemporaryState(run: (directory: string, stateFile: string) => void): void {
@@ -59,4 +59,41 @@ test('save atomically replaces state and removes temporary file', () => {
     assert.deepEqual(JSON.parse(readFileSync(stateFile, 'utf8')), expected);
     assert.deepEqual(readdirSync(directory), ['state.json']);
   });
+});
+
+test('offline TikTok check prunes modern and legacy target sessions only', () => {
+  const state: BotState = {
+    activeLiveSessions: [
+      'creator:old-room',
+      'tiktok:creator:new-room',
+      'other:room',
+      'youtube:UCchannel:video',
+    ],
+    youtubeActiveVideos: {},
+    platformErrors: {},
+  };
+
+  pruneTargetSessions(state, 'tiktok', 'creator');
+
+  assert.deepEqual(state.activeLiveSessions, [
+    'other:room',
+    'youtube:UCchannel:video',
+  ]);
+});
+
+test('active legacy TikTok key migrates without losing deduplication', () => {
+  const state: BotState = {
+    activeLiveSessions: ['creator:current-room', 'creator:old-room'],
+    youtubeActiveVideos: {},
+    platformErrors: {},
+  };
+
+  pruneTargetSessions(
+    state,
+    'tiktok',
+    'creator',
+    'tiktok:creator:current-room'
+  );
+
+  assert.deepEqual(state.activeLiveSessions, ['tiktok:creator:current-room']);
 });
