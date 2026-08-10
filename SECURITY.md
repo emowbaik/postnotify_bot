@@ -159,6 +159,6 @@ Remediation regressions prove private/local targets are rejected before network 
 - Secret scanning and push protection are enabled; current open alerts: 0.
 - Dependabot vulnerability alerts and automatic security-update PRs are enabled and unpaused; current open alerts: 0; current open Dependabot PRs: 0.
 - CodeQL default setup is enabled for GitHub Actions and JavaScript/TypeScript with weekly scans; initial run [`31393645930`](https://github.com/emowbaik/postnotify_bot/actions/runs/31393645930) completed successfully; current open alerts: 0.
-- Secret scanning non-provider patterns and validity checks remain disabled.
+- Non-provider patterns and validity checks remain unavailable: GitHub returned HTTP 200 for exact enable requests but retained `disabled`. GitHub documents validity checks as requiring an organization-owned Team/Enterprise repository with GitHub Secret Protection; this repository is user-owned and public. Enabling them requires moving the repository to an eligible organization and licensing Secret Protection.
 
 Security probes must use local mock servers and fake credentials. Never target production metadata services or include real secrets in fixtures.
