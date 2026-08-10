@@ -16,13 +16,13 @@ on:
 jobs:
   check-and-notify:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
 
-    # Prevent overlapping runs — only one instance at a time.
-    # New run cancels the previous one to avoid duplicate notifications.
+    # Never cancel a state-bearing run: it may have sent Discord alerts before
+    # state.json is committed. Overlapping triggers wait for the active run.
     concurrency:
       group: live-monitor
-      cancel-in-progress: true
+      cancel-in-progress: false
 
     permissions:
       contents: write   # needed to commit state.json back to the repo
