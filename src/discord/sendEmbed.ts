@@ -15,6 +15,7 @@ import type {
   PersistedPlatformError,
 } from '../types.js';
 import { generateLivePreview } from './thumbnail-generator.js';
+import { fetchDiscord } from './request.js';
 
 const DISCORD_API = 'https://discord.com/api/v10';
 const PLATFORM_COLOR = {
@@ -57,7 +58,7 @@ export async function sendLiveNotification(
     'live-preview.jpg'
   );
 
-  const response = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
+  const response = await fetchDiscord(`${DISCORD_API}/channels/${channelId}/messages`, {
     method: 'POST',
     headers: {
       Authorization: `Bot ${botToken}`,
@@ -129,7 +130,7 @@ async function sendJsonMessage(
   payload: DiscordMessagePayload
 ): Promise<void> {
   if (!botToken.trim() || !channelId.trim()) throw new Error('Discord admin route is invalid.');
-  const response = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
+  const response = await fetchDiscord(`${DISCORD_API}/channels/${channelId}/messages`, {
     method: 'POST',
     headers: {
       Authorization: `Bot ${botToken}`,
