@@ -32,9 +32,9 @@ Automated Discord notification bot that sends rich alerts when TikTok creators o
         ↓
 [Classify each result as live, offline, or operational error]
         ↓
-[On error: preserve prior state and send one deduplicated admin alert]
+[Preserve target state on error; deduplicate admin error and recovery alerts]
         ↓
-[On recovery: send one recovery alert and clear the error fingerprint]
+[Prune confirmed-offline targets and cache active YouTube video IDs]
         ↓
 [Ignore session if platform:creator:broadcast ID already exists in state]
         ↓
@@ -89,9 +89,9 @@ Required only when YouTube monitoring is enabled.
 4. Search for **YouTube Data API v3**, open it, then click **Enable**
 5. Open [APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials)
 6. Click **Create Credentials → API key**
-9. Under **Application restrictions**, select **None** because GitHub-hosted runner IP addresses are dynamic
-10. Under **API restrictions**, select **Restrict key**, choose **YouTube Data API v3**, then click **Create**
-11. Copy the generated key; this value becomes the `YOUTUBE_API_KEY` GitHub Secret
+7. Under **Application restrictions**, select **None** because GitHub-hosted runner IP addresses are dynamic
+8. Under **API restrictions**, select **Restrict key**, choose **YouTube Data API v3**, then click **Create**
+9. Copy the generated key; this value becomes the `YOUTUBE_API_KEY` GitHub Secret
 
 > [!IMPORTANT]
 > Never commit the API key to the repository or place it directly in the workflow file. Store it only as the `YOUTUBE_API_KEY` GitHub Secret.
@@ -244,7 +244,7 @@ TikTok timeouts and connector/API failures are operational errors, not offline r
 
 The workflow installs `fonts-noto-core` and `fonts-noto-cjk` before generating previews, so titles in Latin, Cyrillic, Greek, Chinese, Japanese, Korean, Arabic, Hebrew, Indic, and Thai render as real glyphs instead of placeholder boxes. Title lines wrap by estimated rendered width rather than character count, keeping long or wide-glyph titles clear of the right-side poster.
 
-Emoji are removed from the generated image because Sharp cannot reliably rasterize color emoji fonts. The Discord embed title still shows the original emoji.
+Emoji-presentation and pictographic characters are removed from the generated JPEG because Sharp cannot reliably rasterize color emoji fonts. The Discord embed title keeps the original title unchanged.
 
 ### Separate Discord Routing
 
@@ -309,10 +309,10 @@ postnotify_bot/
 
 ## Requirements
 
-- **Bun** (used in GitHub Actions via `oven-sh/setup-bun@v2`)
-- **Node.js 18+** compatible runtime (for native `fetch`, `FormData`, `Blob`)
+- **Bun 1.x** for installation and direct TypeScript execution
+- **Node.js 18+** for npm-based local tooling and native web APIs
 - `sharp` for image generation
-- Noto fonts for non-Latin preview text; GitHub Actions installs `fonts-noto-core` and `fonts-noto-cjk` automatically, and local runs need equivalent system fonts
+- Noto fonts for non-Latin preview text; GitHub Actions installs `fonts-noto-core` and `fonts-noto-cjk` automatically, while local preview generation needs equivalent system fonts
 
 Dependencies are installed automatically during workflow runs.
 
