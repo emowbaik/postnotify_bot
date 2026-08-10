@@ -17,8 +17,10 @@ Automated Discord notification bot that sends rich alerts when TikTok creators o
 - ⚡ Persistent active-video cache reduces YouTube API quota usage while a stream remains live
 - 🔒 Workflow concurrency queues overlapping triggers without cancelling state-bearing runs
 - 💾 Corruption-safe, atomically written notification state through repository-backed `state.json`
-- 🧪 Dependency-free native regression suite for state, APIs, orchestration, Discord, and previews
-- 🧹 Automatic cleanup keeps only the latest workflow run
+- 🧪 Dependency-free native regression suite for state, APIs, orchestration, Discord, previews, and security boundaries
+- 📦 Immutable Action/runtime pins and lockfile-enforced dependency installation
+- 🌐 HTTPS-only remote images with public-network, redirect, byte, MIME, format, and pixel validation
+- 🔑 Short-lived GitHub job token powers state sync and self-dispatch; no personal access token required
 - 🔄 Daily keepalive protects scheduled workflows from GitHub's 60-day inactivity disablement
 - ♾️ Self-triggering loop runs without an external scheduler or server
 
@@ -45,9 +47,9 @@ Automated Discord notification bot that sends rich alerts when TikTok creators o
         ↓
 [Atomically save state.json; rebase and retry its state-only commit]
         ↓
-[Delete old runs, then sleep 300 seconds]
+[sleep 300 seconds]
         ↓
-[repository_dispatch triggers next run]
+[repository_dispatch uses the short-lived GitHub job token]
         ↓
 [Loop continues]
 ```
@@ -72,17 +74,7 @@ cd postnotify_bot
 3. Invite the bot to your server with permissions: **Send Messages** + **Embed Links** + **Attach Files**
 4. Copy the **Channel ID** of the target notification channel (right-click channel → Copy Channel ID)
 
-### Step 3 — Create a GitHub Personal Access Token (LOOP\_TOKEN)
-
-Required so the workflow can trigger itself.
-
-1. Go to [GitHub Settings → Developer Settings → Personal Access Tokens (Classic)](https://github.com/settings/tokens)
-2. Click **Generate new token (classic)**
-3. Name it: `postnotify-loop-token`
-4. Check scope: ✅ `repo` (all sub-scopes)
-5. Copy the generated token
-
-### Step 4 — Get a YouTube Data API v3 Key
+### Step 3 — Get a YouTube Data API v3 Key
 
 Required only when YouTube monitoring is enabled.
 
@@ -102,14 +94,13 @@ Required only when YouTube monitoring is enabled.
 > [!NOTE]
 > New Google Cloud projects normally receive 10,000 YouTube Data API quota units per day. This bot limits YouTube monitoring to 10 channels to stay within that default quota under normal polling.
 
-### Step 5 — Configure GitHub Secrets
+### Step 4 — Configure GitHub Secrets
 
 Go to your repository → **Settings → Secrets and variables → Actions → New repository secret**
 
 | Secret | Required | Description |
 |--------|:--------:|-------------|
 | `DISCORD_BOT_TOKEN` | ✅ | Shared Discord bot token from Step 2 |
-| `LOOP_TOKEN` | ✅ | GitHub PAT from Step 3 |
 | `TIKTOK_USERNAMES` | ❌ | Comma-separated TikTok usernames without `@`; enables TikTok monitoring |
 | `TIKTOK_DISCORD_CHANNEL_ID` | Conditional | Required when `TIKTOK_USERNAMES` is set |
 | `TIKTOK_DISCORD_MENTION` | ❌ | Optional ping for TikTok alerts |
@@ -139,7 +130,6 @@ YouTube-only example:
 
 ```text
 DISCORD_BOT_TOKEN=your_bot_token
-LOOP_TOKEN=your_github_pat
 YOUTUBE_CHANNEL_IDS=UCxxxxxxxxxxxxxxxxxxxxxx
 YOUTUBE_API_KEY=your_google_api_key
 YOUTUBE_DISCORD_CHANNEL_ID=123456789012345678
@@ -168,23 +158,23 @@ Find a YouTube channel ID in the channel page source, an About-page URL, or thro
 
 Leave either mention secret unset to send that platform's notification without a ping.
 
-### Step 6 — Enable GitHub Actions
+### Step 5 — Enable GitHub Actions
 
 1. Go to the **Actions** tab in your repository
 2. Click **"I understand my workflows, go ahead and enable them"** if prompted
-3. Select **PostNotify Live Monitor** → click **Run workflow** to start the loop
+3. Under **Settings → Actions → General → Workflow permissions**, enable **Read and write permissions**
+4. Select **PostNotify Live Monitor** → click **Run workflow** to start the loop
 
-The loop runs automatically afterward. A daily cron at `00:00 UTC` acts as a safety net to restart the loop if it ever dies.
+The loop runs automatically afterward with GitHub's short-lived job token. No PAT is required. A daily cron at `00:00 UTC` acts as a safety net to restart the loop if it ever dies.
 
 ---
 
 ## Stopping the Loop
 
-1. Go to the **Actions** tab
-2. Select the running workflow (🟡 In progress)
-3. Click **Cancel workflow**
+1. Disable the workflow from **Actions → PostNotify Live Monitor → … → Disable workflow**, or remove its `repository_dispatch` trigger.
+2. Cancel any currently running or queued monitor run.
 
-Alternatively, revoke the `LOOP_TOKEN` secret to permanently stop the loop.
+Cancelling one run alone is temporary: the daily cron can restart the workflow.
 
 ---
 
@@ -206,7 +196,7 @@ YouTube LIVE • Example Channel
 [📺 Tonton Live] [👤 Lihat Channel]
 ```
 
-Both embeds upload a generated 1280×720 preview. TikTok uses its pink accent; YouTube uses its red accent. When a remote thumbnail or avatar is unavailable, the generator produces a local platform-aware fallback.
+Both embeds upload a generated 1280×720 preview. TikTok uses its pink accent; YouTube uses its red accent. Remote images must use HTTPS and resolve only to public IP addresses; every redirect is revalidated. Responses are streamed under a 15 MiB limit and checked for supported raster MIME, format, and pixel count. When any check fails, the generator produces a local platform-aware fallback.
 
 ---
 
@@ -255,7 +245,7 @@ TikTok alerts use `TIKTOK_DISCORD_CHANNEL_ID` and `TIKTOK_DISCORD_MENTION`. YouT
 
 ### Changing the Polling Interval
 
-Edit `sleep 300` in `.github/workflows/live-monitor.yml`. Default: 300 seconds (approximately 5 minutes). Keep `timeout-minutes` greater than the sleep plus setup, monitoring, state sync, and cleanup time; current job timeout is 15 minutes.
+Edit `sleep 300` in `.github/workflows/live-monitor.yml`. Default: 300 seconds (approximately 5 minutes). Keep `timeout-minutes` greater than the sleep plus setup, monitoring, and state sync time; current job timeout is 15 minutes.
 
 ---
 
@@ -263,12 +253,12 @@ Edit `sleep 300` in `.github/workflows/live-monitor.yml`. Default: 300 seconds (
 
 GitHub automatically **disables** scheduled workflows after **60 days of inactivity** (particularly on public repositories and forks).
 
-This project includes [`liskin/gh-workflow-keepalive@v1`](https://github.com/liskin/gh-workflow-keepalive) to prevent that.
+This project pins [`liskin/gh-workflow-keepalive`](https://github.com/liskin/gh-workflow-keepalive) to reviewed commit `f72ff1a1336129f29bf0166c0fd0ca6cf1bcb38c` (`v1.2.1`).
 
 **How it works:**
 - On every `schedule` trigger (daily cron at `00:00 UTC`), a separate `workflow-keepalive` job runs
-- It calls the GitHub API to re-enable the workflow if GitHub has marked it as disabled
-- It does **not** create dummy commits or modify Git history
+- It receives only `actions: write` and calls the GitHub API to re-enable this workflow if disabled
+- It does **not** receive bot/API secrets, create dummy commits, or modify Git history
 
 **For forks:**
 - A newly forked repository may still require one manual enable
@@ -290,13 +280,15 @@ postnotify_bot/
 ├── package.json                        # Dependencies, runtime, test, and typecheck scripts
 ├── tsconfig.json                       # TypeScript configuration
 ├── state.json                          # Notified sessions, active video IDs, error fingerprints
-├── test/                               # Native regression tests (19 checks)
+├── test/                               # Native regression tests (26 checks)
+├── tasks/                              # Remediation checklist and lessons
 ├── .github/
 │   └── workflows/
-│       └── live-monitor.yml            # Loop, cron, fonts, secrets, state sync, and keepalive
+│       └── live-monitor.yml            # Pinned loop, fonts, state sync, and keepalive
 └── src/
     ├── app.ts                          # Orchestration, state transitions, and alert routing
     ├── checks.ts                       # Promise settlement with stable platform/target identity
+    ├── log.ts                          # Bounded one-line external log values
     ├── types.ts                        # Live, offline, error, and persisted state types
     ├── state.ts                        # Atomic state, migration, cache, and deduplication
     ├── config/
@@ -308,19 +300,19 @@ postnotify_bot/
     └── discord/
         ├── request.ts                  # Bounded Discord HTTP requests
         ├── sendEmbed.ts               # Live and operational Discord alerts
-        └── thumbnail-generator.ts     # Multilingual 1280×720 JPEG generator
+        └── thumbnail-generator.ts     # Multilingual JPEG and secure image downloads
 ```
 
 ---
 
 ## Requirements
 
-- **Bun 1.x** for installation and direct TypeScript execution
-- **Node.js 22.6+** for the dependency-free native TypeScript regression suite
+- **Bun 1.3.14** for direct TypeScript execution in GitHub Actions
+- **Node.js 22.6+** and npm for lockfile-enforced dependency installation and native TypeScript tests
 - `sharp` for image generation
 - Noto fonts for non-Latin preview text; GitHub Actions installs `fonts-noto-core` and `fonts-noto-cjk` automatically, while local preview generation needs equivalent system fonts
 
-Dependencies are installed automatically during workflow runs.
+Workflow dependencies are installed with `npm ci` from the reviewed `package-lock.json`; unlocked fallback installation is not allowed.
 
 ### Local Validation
 
@@ -343,6 +335,9 @@ npm audit --omit=dev
 - **State management:** `state.json` stores notified sessions, active YouTube video IDs, and deduplicated operational errors. Invalid existing JSON stops the run without overwriting it; successful saves use a same-directory atomic rename.
 - **State synchronization:** The workflow rebases its state-only commit onto the latest default branch and retries rejected pushes up to three times. It never force-pushes.
 - **Discord availability:** Live, error, and recovery requests have a 15-second network deadline so outages cannot stall state processing indefinitely.
+- **Supply chain:** Workflow Actions and Bun use immutable reviewed versions. Dependencies install only through `npm ci` and tracked integrity hashes.
+- **Workflow credentials:** Bot/API secrets exist only in the monitor step. State push and self-dispatch use a short-lived job token; checkout credentials are not persisted.
+- **Actions retention:** Old runs follow repository retention settings under **Settings → Actions → General**; workflow no longer deletes run history.
 - **Concurrency:** `cancel-in-progress: false` queues overlapping triggers so a run cannot be cancelled after sending Discord alerts but before persisting state.
 
 ---

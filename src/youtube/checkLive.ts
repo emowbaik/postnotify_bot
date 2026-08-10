@@ -1,3 +1,4 @@
+import { safeLogValue } from '../log.ts';
 import type { LiveCheckError, LiveCheckResult, LiveInfo } from '../types.js';
 
 const API_ORIGIN = 'https://www.googleapis.com/youtube/v3';
@@ -90,7 +91,7 @@ async function toLiveInfo(video: ApiItem, channelId: string, apiKey: string): Pr
     profilePicUrl: bestThumbnail(channelSnippet.thumbnails), liveUrl: `https://www.youtube.com/watch?v=${videoId}`,
     profileUrl: `https://www.youtube.com/channel/${channelId}`, startedAt: stringValue(details.actualStartTime) ?? new Date().toISOString(),
   };
-  console.log(`[YouTube:${channelId}] [LIVE] video: ${videoId}, viewers: ${info.viewerCount}, title: ${info.title}`);
+  console.log(`[YouTube:${channelId}] [LIVE] video: ${videoId}, viewers: ${info.viewerCount}, title: ${safeLogValue(info.title)}`);
   return info;
 }
 function offline(channelId: string): LiveCheckResult {

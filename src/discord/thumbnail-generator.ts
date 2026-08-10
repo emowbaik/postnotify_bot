@@ -10,6 +10,11 @@
  * - Format JPEG agar ukuran file kecil
  */
 
+import { lookup as dnsLookup } from 'node:dns/promises';
+import type { LookupAddress } from 'node:dns';
+import type { IncomingHttpHeaders } from 'node:http';
+import { get as httpsGet } from 'node:https';
+import { BlockList, isIP } from 'node:net';
 import sharp from 'sharp';
 import type { LiveInfo } from '../types.js';
 
@@ -33,10 +38,61 @@ const PLATFORM_ACCENT_COLOR = {
   youtube: '#FF0033',
 } as const;
 
-const MAX_REMOTE_IMAGE_SIZE =
-  15 * 1024 * 1024;
-
+const MAX_REMOTE_IMAGE_SIZE = 15 * 1024 * 1024;
+const MAX_REMOTE_IMAGE_PIXELS = 40_000_000;
+const MAX_IMAGE_REDIRECTS = 3;
 const IMAGE_DOWNLOAD_TIMEOUT = 10_000;
+const ALLOWED_IMAGE_MIME_TYPES = new Set([
+  'image/avif',
+  'image/gif',
+  'image/heif',
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+]);
+const ALLOWED_SHARP_FORMATS = new Set(['avif', 'gif', 'heif', 'jpeg', 'png', 'webp']);
+
+const BLOCKED_IPV4 = new BlockList();
+for (const [network, prefix] of [
+  ['0.0.0.0', 8],
+  ['10.0.0.0', 8],
+  ['100.64.0.0', 10],
+  ['127.0.0.0', 8],
+  ['169.254.0.0', 16],
+  ['172.16.0.0', 12],
+  ['192.0.0.0', 24],
+  ['192.0.2.0', 24],
+  ['192.88.99.0', 24],
+  ['192.168.0.0', 16],
+  ['198.18.0.0', 15],
+  ['198.51.100.0', 24],
+  ['203.0.113.0', 24],
+  ['224.0.0.0', 4],
+  ['240.0.0.0', 4],
+] as const) {
+  BLOCKED_IPV4.addSubnet(network, prefix, 'ipv4');
+}
+
+const BLOCKED_IPV6 = new BlockList();
+for (const [network, prefix] of [
+  ['::', 128],
+  ['::1', 128],
+  ['::ffff:0:0', 96],
+  ['64:ff9b::', 96],
+  ['64:ff9b:1::', 48],
+  ['100::', 64],
+  ['2001::', 23],
+  ['2001:db8::', 32],
+  ['2002::', 16],
+  ['3fff::', 20],
+  ['5f00::', 16],
+  ['fc00::', 7],
+  ['fe80::', 10],
+  ['ff00::', 8],
+] as const) {
+  BLOCKED_IPV6.addSubnet(network, prefix, 'ipv6');
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Generator
@@ -69,7 +125,9 @@ export async function generateLivePreview(
     ? await createCircularAvatar(profileBuffer)
     : createFallbackAvatar(displayName, accentColor);
 
-  const finalImage = await sharp(background)
+  const finalImage = await sharp(background, {
+    limitInputPixels: MAX_REMOTE_IMAGE_PIXELS,
+  })
     .composite([
       { input: createBackgroundOverlay(), top: 0, left: 0 },
       { input: createPosterShadow(), top: POSTER_TOP + 14, left: POSTER_LEFT + 14 },
@@ -90,7 +148,7 @@ export async function generateLivePreview(
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function createBackground(source: Buffer): Promise<Buffer> {
-  return sharp(source)
+  return sharp(source, { limitInputPixels: MAX_REMOTE_IMAGE_PIXELS })
     .resize(CANVAS_WIDTH, CANVAS_HEIGHT, {
       fit: 'cover',
       position: sharp.strategy.attention,
@@ -153,7 +211,7 @@ async function createRoundedPoster(source: Buffer): Promise<Buffer> {
     </svg>
   `);
 
-  return sharp(source)
+  return sharp(source, { limitInputPixels: MAX_REMOTE_IMAGE_PIXELS })
     .resize(POSTER_WIDTH, POSTER_HEIGHT, {
       fit: 'cover',
       position: sharp.strategy.attention,
@@ -219,7 +277,7 @@ async function createCircularAvatar(source: Buffer): Promise<Buffer> {
     </svg>
   `);
 
-  return sharp(source)
+  return sharp(source, { limitInputPixels: MAX_REMOTE_IMAGE_PIXELS })
     .resize(AVATAR_SIZE, AVATAR_SIZE, {
       fit: 'cover',
       position: sharp.strategy.attention,
@@ -323,42 +381,239 @@ function createTextOverlay(info: LiveInfo): Buffer {
 // Remote Image Downloader
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function downloadImage(imageUrl?: string | null): Promise<Buffer | null> {
-  if (!imageUrl || !isHttpUrl(imageUrl)) return null;
+type ImageDnsResolver = (hostname: string) => Promise<LookupAddress[]>;
+
+type RemoteImageResponse = AsyncIterable<Uint8Array | string> & {
+  statusCode: number | undefined;
+  headers: IncomingHttpHeaders;
+  destroy(): void;
+  resume(): void;
+};
+
+type RemoteImageRequest = (
+  url: URL,
+  addresses: readonly LookupAddress[],
+  signal: AbortSignal
+) => Promise<RemoteImageResponse>;
+
+export interface ImageDownloadDependencies {
+  resolveHostname?: ImageDnsResolver;
+  request?: RemoteImageRequest;
+}
+
+export async function downloadImage(
+  imageUrl?: string | null,
+  dependencies: ImageDownloadDependencies = {}
+): Promise<Buffer | null> {
+  if (!imageUrl) return null;
+
+  let currentUrl: URL;
+  try {
+    currentUrl = new URL(imageUrl);
+  } catch {
+    return null;
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), IMAGE_DOWNLOAD_TIMEOUT);
+  const resolveHostname = dependencies.resolveHostname ?? defaultImageDnsResolver;
+  const request = dependencies.request ?? requestRemoteImage;
 
+  let activeResponse: RemoteImageResponse | null = null;
   try {
-    const response = await fetch(imageUrl, {
-      signal: controller.signal,
-      headers: { 'User-Agent': 'PostNotifyBot/2.0', Accept: 'image/*' },
-    });
+    for (let redirectCount = 0; redirectCount <= MAX_IMAGE_REDIRECTS; redirectCount++) {
+      const addresses = await withAbort(
+        resolvePublicImageTarget(currentUrl, resolveHostname),
+        controller.signal
+      );
+      const response = await request(currentUrl, addresses, controller.signal);
+      activeResponse = response;
+      const status = response.statusCode ?? 0;
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (isRedirectStatus(status)) {
+        const location = headerValue(response.headers.location);
+        response.resume();
+        if (!location || redirectCount === MAX_IMAGE_REDIRECTS) {
+          throw new Error('Remote image redirect tidak valid.');
+        }
+        currentUrl = new URL(location, currentUrl);
+        continue;
+      }
 
-    const contentLength = Number(response.headers.get('content-length') ?? 0);
-    if (Number.isFinite(contentLength) && contentLength > MAX_REMOTE_IMAGE_SIZE) {
-      throw new Error('Remote image terlalu besar.');
+      if (status < 200 || status >= 300) {
+        response.resume();
+        throw new Error(`HTTP ${status}`);
+      }
+
+      const contentType = headerValue(response.headers['content-type'])
+        ?.split(';', 1)[0]
+        ?.trim()
+        .toLowerCase();
+      if (!contentType || !ALLOWED_IMAGE_MIME_TYPES.has(contentType)) {
+        response.destroy();
+        throw new Error('Remote resource bukan gambar raster yang didukung.');
+      }
+
+      const contentLength = Number(headerValue(response.headers['content-length']) ?? 0);
+      if (Number.isFinite(contentLength) && contentLength > MAX_REMOTE_IMAGE_SIZE) {
+        response.destroy();
+        throw new Error('Remote image terlalu besar.');
+      }
+
+      const buffer = await readLimitedImageBody(response);
+      const metadata = await sharp(buffer, {
+        limitInputPixels: MAX_REMOTE_IMAGE_PIXELS,
+      }).metadata();
+      const pixels = (metadata.width ?? 0) * (metadata.height ?? 0);
+      if (!metadata.format || !ALLOWED_SHARP_FORMATS.has(metadata.format)) {
+        throw new Error('Format remote image tidak didukung.');
+      }
+      if (!Number.isSafeInteger(pixels) || pixels <= 0 || pixels > MAX_REMOTE_IMAGE_PIXELS) {
+        throw new Error('Dimensi remote image terlalu besar.');
+      }
+      return buffer;
     }
-
-    const arrayBuffer = await response.arrayBuffer();
-    if (arrayBuffer.byteLength > MAX_REMOTE_IMAGE_SIZE) {
-      throw new Error('Remote image melebihi batas ukuran.');
-    }
-
-    const buffer = Buffer.from(arrayBuffer);
-    await sharp(buffer).metadata(); // validate image
-    return buffer;
-  } catch (error) {
+  } catch (error: unknown) {
+    activeResponse?.destroy();
+    const reason = error instanceof Error
+      ? error.message.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, ' ').trim()
+      : 'Unknown image error.';
     console.warn(
-      `[Thumbnail] Gagal mengunduh ${imageUrl}:`,
-      error instanceof Error ? error.message : error
+      `[Thumbnail] Gagal mengunduh gambar dari ${safeRemoteOrigin(currentUrl)}: ${reason}`
     );
-    return null;
   } finally {
     clearTimeout(timeout);
   }
+
+  return null;
+}
+
+export async function resolvePublicImageTarget(
+  url: URL,
+  resolveHostname: ImageDnsResolver = defaultImageDnsResolver
+): Promise<LookupAddress[]> {
+  if (url.protocol !== 'https:') throw new Error('Remote image wajib menggunakan HTTPS.');
+  if (url.username || url.password) throw new Error('Remote image URL tidak boleh berisi kredensial.');
+  if (url.port && url.port !== '443') throw new Error('Remote image wajib menggunakan port HTTPS standar.');
+
+  const hostname = stripIpv6Brackets(url.hostname).toLowerCase().replace(/\.$/, '');
+  if (!hostname || hostname === 'localhost' || hostname.endsWith('.localhost')) {
+    throw new Error('Remote image host tidak diizinkan.');
+  }
+
+  const family = isIP(hostname);
+  const resolved = family
+    ? [{ address: hostname, family } as LookupAddress]
+    : await resolveHostname(hostname);
+  if (resolved.length === 0) throw new Error('Remote image host tidak dapat di-resolve.');
+
+  const unique = new Map<string, LookupAddress>();
+  for (const result of resolved) {
+    if ((result.family !== 4 && result.family !== 6) || !isPublicIpAddress(result.address)) {
+      throw new Error('Remote image host mengarah ke jaringan nonpublik.');
+    }
+    unique.set(`${result.family}:${result.address}`, result);
+  }
+  return [...unique.values()];
+}
+
+export function isPublicIpAddress(address: string): boolean {
+  const normalized = stripIpv6Brackets(address).split('%', 1)[0] ?? '';
+  const family = isIP(normalized);
+  if (family === 4) return !BLOCKED_IPV4.check(normalized, 'ipv4');
+  if (family === 6) return !BLOCKED_IPV6.check(normalized, 'ipv6');
+  return false;
+}
+
+async function defaultImageDnsResolver(hostname: string): Promise<LookupAddress[]> {
+  return dnsLookup(hostname, { all: true, verbatim: true });
+}
+
+function requestRemoteImage(
+  url: URL,
+  addresses: readonly LookupAddress[],
+  signal: AbortSignal
+): Promise<RemoteImageResponse> {
+  return new Promise((resolve, reject) => {
+    const request = httpsGet(url, {
+      agent: false,
+      signal,
+      headers: { 'User-Agent': 'PostNotifyBot/2.0', Accept: 'image/*' },
+      lookup: (_hostname, options, callback) => {
+        const requestedFamily = options.family === 4 || options.family === 6
+          ? options.family
+          : 0;
+        const eligible = requestedFamily
+          ? addresses.filter((address) => address.family === requestedFamily)
+          : addresses;
+        const selected = eligible[0];
+        if (!selected) {
+          const error = Object.assign(new Error('No validated address for requested family.'), {
+            code: 'ENOTFOUND',
+          });
+          callback(error, '', 0);
+        } else if (options.all) {
+          callback(null, [...eligible]);
+        } else {
+          callback(null, selected.address, selected.family);
+        }
+      },
+    }, (response) => resolve(Object.assign(response, {
+      statusCode: response.statusCode,
+    })));
+    request.once('error', reject);
+  });
+}
+
+async function readLimitedImageBody(response: RemoteImageResponse): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  let totalBytes = 0;
+
+  for await (const chunk of response) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    totalBytes += buffer.byteLength;
+    if (totalBytes > MAX_REMOTE_IMAGE_SIZE) {
+      response.destroy();
+      throw new Error('Remote image melebihi batas ukuran.');
+    }
+    chunks.push(buffer);
+  }
+
+  return Buffer.concat(chunks, totalBytes);
+}
+
+function withAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(new Error('Remote image request timed out.'));
+  return new Promise((resolve, reject) => {
+    const abort = () => reject(new Error('Remote image request timed out.'));
+    signal.addEventListener('abort', abort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener('abort', abort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', abort);
+        reject(error);
+      }
+    );
+  });
+}
+
+function isRedirectStatus(status: number): boolean {
+  return status === 301 || status === 302 || status === 303 || status === 307 || status === 308;
+}
+
+function headerValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function safeRemoteOrigin(url: URL): string {
+  return url.protocol === 'https:' ? url.origin : '[blocked URL]';
+}
+
+function stripIpv6Brackets(value: string): string {
+  return value.startsWith('[') && value.endsWith(']') ? value.slice(1, -1) : value;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -476,13 +731,4 @@ function stripEmoji(value: string): string {
     .replace(/\p{Extended_Pictographic}/gu, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
-}
-
-function isHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch {
-    return false;
-  }
 }

@@ -9,6 +9,7 @@
     "exactOptionalPropertyTypes": true,
     "noImplicitReturns": true,
     "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
     "outDir": "./dist"
   },
   "include": ["src/**/*.ts"],

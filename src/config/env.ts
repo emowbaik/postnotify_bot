@@ -64,16 +64,4 @@ export const env = {
 
   /** Optional mention for new operational errors and recovery alerts. */
   adminDiscordMention: optionalEnv('ADMIN_DISCORD_MENTION'),
-
-  /**
-   * GitHub PAT used to self-trigger the workflow loop.
-   * Required scope: repo
-   */
-  loopToken: optionalEnv('LOOP_TOKEN'),
-
-  /**
-   * GitHub repository in the format "owner/repo".
-   * Automatically injected by GitHub Actions as GITHUB_REPOSITORY.
-   */
-  githubRepository: optionalEnv('GITHUB_REPOSITORY'),
 } as const;

@@ -9,6 +9,7 @@
  */
 
 import { TikTokLiveConnection } from 'tiktok-live-connector';
+import { safeLogValue } from '../log.ts';
 import type { LiveCheckResult } from '../types.js';
 
 /**
@@ -45,7 +46,7 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
     const room = normalizeTikTokRoomData(roomData, username);
     const { title, viewerCount, thumbnailUrl, profilePicUrl, startedAt } = room;
 
-    console.log(`[${username}] ✅ LIVE — room: ${roomId}, viewers: ${viewerCount}, title: ${title}`);
+    console.log(`[${username}] ✅ LIVE — room: ${roomId}, viewers: ${viewerCount}, title: ${safeLogValue(title)}`);
 
     return {
       status: 'live',
