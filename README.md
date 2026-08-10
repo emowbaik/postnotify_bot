@@ -2,6 +2,12 @@
 
 Automated Discord notification bot that sends rich alerts when TikTok creators or YouTube channels go live. Runs continuously through a **GitHub Actions self-triggering loop**—no dedicated server required.
 
+## Architecture at a Glance
+
+![PostNotify Bot repository architecture](assets/repo_infographic.png)
+
+The runtime forms one repository-backed loop: GitHub Actions triggers parallel detectors, [`app.ts`](src/app.ts) classifies results and deduplicates sessions through [`state.ts`](src/state.ts), [`src/discord`](src/discord) builds secure previews and routes notifications, then the workflow atomically syncs state and dispatches the next cycle.
+
 ---
 
 ## Features
