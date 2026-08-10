@@ -4,7 +4,7 @@
 - [x] Enforce `package-lock.json` with `npm ci`.
 - [x] Scope bot secrets to runtime step and disable checkout credential persistence.
 - [x] Replace classic `LOOP_TOKEN` self-dispatch with short-lived `GITHUB_TOKEN`.
-- [x] Remove broad workflow-run deletion permission.
+- [x] Isolate permanent workflow-run cleanup in a secret-free job with only `actions: write`.
 - [x] Block non-HTTPS and non-public remote image targets.
 - [x] Pin validated DNS answers to HTTPS connections and revalidate redirects.
 - [x] Stream remote images under byte limits; enforce raster MIME/format and pixel limits.
@@ -13,6 +13,15 @@
 - [x] Update README and SECURITY.md.
 - [x] Run full local verification.
 - [x] Push safely and run live GitHub Actions journey.
+
+## Workflow Run Cleanup Restoration
+
+- [x] Restore completed-run deletion for `live-monitor.yml` in a separate least-privilege job.
+- [x] Update README and security traceability without weakening credential boundaries.
+- [x] Validate YAML, permission isolation, TypeScript, tests, and dependency audit.
+- [/] Publish and run one live cleanup journey.
+- [ ] Verify old monitor runs are deleted while active/current run and other workflows remain.
+- [ ] Verify default-branch sync, required checks, alerts, PRs, and clean working tree.
 
 ## Review
 

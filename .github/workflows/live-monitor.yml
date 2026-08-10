@@ -119,6 +119,37 @@ jobs:
             exit 1
           fi
 
+  # ── Cleanup: permanently remove completed runs from this workflow only ────
+  # This job has no checkout and no bot/API secrets. The current run is never
+  # returned by status=completed, so active and queued runs remain untouched.
+  cleanup-completed-runs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: postnotify-run-cleanup
+      cancel-in-progress: false
+    permissions:
+      actions: write
+    steps:
+      - name: Delete completed monitor runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          WORKFLOW_FILE: live-monitor.yml
+        run: |
+          mapfile -t run_ids < <(
+            gh api --paginate \
+              "repos/$REPO/actions/workflows/$WORKFLOW_FILE/runs?status=completed&per_page=100" \
+              --jq '.workflow_runs[].id'
+          )
+
+          echo "Found ${#run_ids[@]} completed monitor run(s) to delete."
+          for run_id in "${run_ids[@]}"; do
+            echo "Deleting completed monitor run: $run_id"
+            gh api --method DELETE "repos/$REPO/actions/runs/$run_id"
+          done
+          echo "Cleanup complete. Active and queued runs were preserved."
+
   # ── Keepalive: mencegah GitHub menonaktifkan scheduled workflow ───────────
   # GitHub menonaktifkan scheduled workflow setelah 60 hari tanpa aktivitas.
   # Job ini berjalan setiap kali cron schedule terpicu dan mengaktifkan ulang

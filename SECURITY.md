@@ -28,7 +28,7 @@ Include affected revision, reproduction steps, impact, and suggested mitigation.
 
 ### SEC-001 — High — Mutable actions ran with broad credentials
 
-**Status:** Remediated — Actions use reviewed immutable SHAs, Bun is exact-pinned, bot/API secrets exist only on the monitoring step, checkout does not persist credentials, and `actions: write` was removed from the credential-bearing job. Monitoring and state persistence remain one queued job deliberately: splitting after Discord delivery would weaken the final state boundary and risk duplicate notifications.
+**Status:** Remediated — Actions use reviewed immutable SHAs, Bun is exact-pinned, bot/API secrets exist only on the monitoring step, checkout does not persist credentials, and the credential-bearing monitor job has no `actions: write`. Permanent run cleanup is preserved in a separate job with only `actions: write`, no checkout, and no bot/API secrets. Monitoring and state persistence remain one queued job deliberately: splitting after Discord delivery would weaken the final state boundary and risk duplicate notifications.
 
 **OWASP:** A08 Software and Data Integrity Failures
 **CWE:** CWE-829 Inclusion of Functionality from Untrusted Control Sphere
@@ -41,7 +41,7 @@ A compromised action tag can read bot/API credentials, use the job token, alter 
 
 1. Pin every action to a reviewed full 40-character commit SHA.
 2. Move bot/API secrets from job-level `env` to the live-check step only.
-3. Remove run deletion and its `actions: write`; use repository retention settings.
+3. Move run deletion and its `actions: write` into a separate secret-free job without checkout.
 4. Set checkout `persist-credentials: false`; inject the short-lived token only into state and dispatch steps.
 5. Pin the Bun runtime to a reviewed exact version.
 

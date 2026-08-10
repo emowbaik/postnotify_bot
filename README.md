@@ -265,6 +265,12 @@ This project pins [`liskin/gh-workflow-keepalive`](https://github.com/liskin/gh-
 - It receives only `actions: write` and calls the GitHub API to re-enable this workflow if disabled
 - It does **not** receive bot/API secrets, create dummy commits, or modify Git history
 
+## GitHub Actions Run Cleanup
+
+Every workflow invocation also starts a separate `cleanup-completed-runs` job. It permanently deletes completed runs belonging only to `.github/workflows/live-monitor.yml`, including its own prior completed invocation. Active and queued runs are preserved because cleanup requests only `status=completed` runs.
+
+The cleanup job receives only `actions: write`. It performs no checkout and receives no Discord, TikTok, YouTube, admin, or repository-content secrets. This keeps privileged run deletion outside the credential-bearing monitor job.
+
 **For forks:**
 - A newly forked repository may still require one manual enable
 - Go to **Actions → PostNotify Live Monitor → Enable workflow**
@@ -289,7 +295,7 @@ postnotify_bot/
 ├── tasks/                              # Remediation checklist and lessons
 ├── .github/
 │   └── workflows/
-│       └── live-monitor.yml            # Pinned loop, fonts, state sync, and keepalive
+│       └── live-monitor.yml            # Pinned loop, isolated cleanup, state sync, and keepalive
 └── src/
     ├── app.ts                          # Orchestration, state transitions, and alert routing
     ├── checks.ts                       # Promise settlement with stable platform/target identity
@@ -342,7 +348,7 @@ npm audit --omit=dev
 - **Discord availability:** Live, error, and recovery requests have a 15-second network deadline so outages cannot stall state processing indefinitely.
 - **Supply chain:** Workflow Actions and Bun use immutable reviewed versions. Dependencies install only through `npm ci` and tracked integrity hashes.
 - **Workflow credentials:** Bot/API secrets exist only in the monitor step. State push and self-dispatch use a short-lived job token; checkout credentials are not persisted.
-- **Actions retention:** Old runs follow repository retention settings under **Settings → Actions → General**; workflow no longer deletes run history.
+- **Actions cleanup:** A separate secret-free job with only `actions: write` permanently deletes completed `live-monitor.yml` runs. It never targets active/queued runs or another workflow's history.
 - **Concurrency:** `cancel-in-progress: false` queues overlapping triggers so a run cannot be cancelled after sending Discord alerts but before persisting state.
 
 ---
