@@ -144,4 +144,14 @@ git diff --check
 
 Remediation regressions prove private/local targets are rejected before network requests, public DNS answers pass, redirects are revalidated, oversized streams stop at the sixteenth 1 MiB chunk, SVG is rejected before body consumption, and command-shaped titles remain one bounded JSON log value.
 
+### Live GitHub Actions Verification
+
+- Hardened run [`31388883516`](https://github.com/emowbaik/postnotify_bot/actions/runs/31388883516) completed successfully on remediation commit `7a90d5f`.
+- Pinned Bun `1.3.14`, `npm ci`, monitoring, state step, five-minute wait, and `${{ github.token }}` self-dispatch all completed successfully.
+- Monitor result was 0 live, 3 offline, 0 errors; no state change occurred, so the successful state step correctly produced no commit.
+- Self-dispatch created successor run [`31389309246`](https://github.com/emowbaik/postnotify_bot/actions/runs/31389309246) on latest `master`; its setup, install, monitor, and state steps also succeeded.
+- Completed run logs contained zero `LOOP_TOKEN`, GitHub PAT prefix, raw Discord token assignment, raw YouTube key assignment, or bearer-header matches.
+- Repository secret `LOOP_TOKEN` was deleted and absence verified. Account-level PAT revocation cannot be verified through repository APIs and remains a manual account action.
+- Repository-wide default workflow permission remains read-only; job permissions are explicit.
+
 Security probes must use local mock servers and fake credentials. Never target production metadata services or include real secrets in fixtures.

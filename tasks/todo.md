@@ -12,8 +12,8 @@
 - [x] Ignore all `.env` variants except `.env.example`.
 - [x] Update README and SECURITY.md.
 - [x] Run full local verification.
-- [ ] Push safely and run live GitHub Actions journey.
+- [x] Push safely and run live GitHub Actions journey.
 
 ## Review
 
-Local verification passed: 26/26 tests, strict TypeScript, 0 dependency vulnerabilities, valid workflow YAML, and clean diff check. Live GitHub verification remains pending.
+Local verification passed: 26/26 tests, strict TypeScript, 0 dependency vulnerabilities, valid workflow YAML, and clean diff check. Live run `31388883516` passed every step and dispatched successor `31389309246`; state had no changes, so no state commit was expected. Repository `LOOP_TOKEN` secret was deleted. Account PAT revocation remains user-verifiable only.
