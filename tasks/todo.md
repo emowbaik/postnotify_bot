@@ -19,10 +19,10 @@
 - [x] Restore completed-run deletion for `live-monitor.yml` in a separate least-privilege job.
 - [x] Update README and security traceability without weakening credential boundaries.
 - [x] Validate YAML, permission isolation, TypeScript, tests, and dependency audit.
-- [/] Publish and run one live cleanup journey.
-- [ ] Verify old monitor runs are deleted while active/current run and other workflows remain.
-- [ ] Verify default-branch sync, required checks, alerts, PRs, and clean working tree.
+- [x] Publish and run one live cleanup journey.
+- [x] Verify old monitor runs are deleted while active/current run and other workflows remain.
+- [x] Verify default-branch sync, required checks, alerts, PRs, and clean working tree.
 
 ## Review
 
-Local verification passed: 26/26 tests, strict TypeScript, 0 dependency vulnerabilities, valid workflow YAML, and clean diff check. Live run `31388883516` passed every step and dispatched successor `31389309246`; state had no changes, so no state commit was expected. Repository `LOOP_TOKEN` secret was deleted. Account PAT revocation remains user-verifiable only.
+Security remediation verification remains passed: 26/26 tests, strict TypeScript, 0 dependency vulnerabilities, valid workflow YAML, isolated permissions, and clean diff checks. Workflow-run cleanup was restored in commits `ab15e01` and `8c69f0c`. Live cleanup reduced monitor history from 108 runs to one active run and zero completed runs. Live job `93619766209` deleted completed runs `31439004948` and `31438703329` while preserving active run `31439095109`; CodeQL retained all eight completed runs. Repository `LOOP_TOKEN` secret remains deleted. Account PAT revocation remains user-verifiable only.
