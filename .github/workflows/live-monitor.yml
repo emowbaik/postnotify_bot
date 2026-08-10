@@ -72,16 +72,29 @@ jobs:
 
       # ── 5. Commit state.json if it changed ───────────────────────────────
       - name: Commit state changes
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch || 'master' }}
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add state.json || true
-          if ! git diff --cached --quiet -- state.json; then
-            git commit -m "chore: sync state.json [skip ci]" state.json
-            git push
-          else
+          git add state.json
+          if git diff --cached --quiet -- state.json; then
             echo "No state changes to commit."
+            exit 0
           fi
+
+          git commit -m "chore: sync state.json [skip ci]" state.json
+          for attempt in 1 2 3; do
+            echo "Sync attempt $attempt/3 against origin/$DEFAULT_BRANCH..."
+            git pull --rebase origin "$DEFAULT_BRANCH"
+            if git push origin "HEAD:$DEFAULT_BRANCH"; then
+              exit 0
+            fi
+            sleep $((attempt * 2))
+          done
+
+          echo "Failed to push state after 3 synchronized attempts."
+          exit 1
 
       # ── 6. Delete old workflow runs (keep only the latest) ───────────────
       # Keeps the Actions tab clean — same pattern as Auto-checkin-iamhc.
