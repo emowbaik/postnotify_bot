@@ -156,9 +156,9 @@ Remediation regressions prove private/local targets are rejected before network 
 
 ### Repository Security Services
 
-- Secret scanning is enabled; current open alerts: 0.
-- Dependabot vulnerability alerts are enabled; current open alerts: 0.
+- Secret scanning and push protection are enabled; current open alerts: 0.
+- Dependabot vulnerability alerts and automatic security-update PRs are enabled and unpaused; current open alerts: 0; current open Dependabot PRs: 0.
 - CodeQL default setup is enabled for GitHub Actions and JavaScript/TypeScript with weekly scans; initial run [`31393645930`](https://github.com/emowbaik/postnotify_bot/actions/runs/31393645930) completed successfully; current open alerts: 0.
-- Secret scanning push protection, non-provider patterns, and validity checks remain disabled because they were outside this activation request.
+- Secret scanning non-provider patterns and validity checks remain disabled.
 
 Security probes must use local mock servers and fake credentials. Never target production metadata services or include real secrets in fixtures.
