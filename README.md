@@ -162,10 +162,9 @@ Leave either mention secret unset to send that platform's notification without a
 
 1. Go to the **Actions** tab in your repository
 2. Click **"I understand my workflows, go ahead and enable them"** if prompted
-3. Under **Settings → Actions → General → Workflow permissions**, enable **Read and write permissions**
-4. Select **PostNotify Live Monitor** → click **Run workflow** to start the loop
+3. Select **PostNotify Live Monitor** → click **Run workflow** to start the loop
 
-The loop runs automatically afterward with GitHub's short-lived job token. No PAT is required. A daily cron at `00:00 UTC` acts as a safety net to restart the loop if it ever dies.
+The workflow declares its required permissions per job, so the repository-wide default can remain **Read repository contents and packages permissions**. The loop runs automatically afterward with GitHub's short-lived job token; no PAT is required. A daily cron at `00:00 UTC` acts as a safety net to restart the loop if it ever dies.
 
 ---
 
