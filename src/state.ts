@@ -6,7 +6,8 @@
  * workflow after each run, so it persists across workflow executions.
  */
 
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'fs';
+import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import type {
@@ -38,22 +39,31 @@ export function normalizeBotState(value: unknown): BotState {
   };
 }
 
-/** Load the current state from state.json, falling back to empty defaults. */
-export function loadState(): BotState {
-  if (!existsSync(STATE_FILE)) return structuredClone(DEFAULT_STATE);
+/** Load state without replacing corrupt persisted data with empty defaults. */
+export function loadState(stateFile = STATE_FILE): BotState {
+  if (!existsSync(stateFile)) return structuredClone(DEFAULT_STATE);
 
   try {
-    const raw = readFileSync(STATE_FILE, 'utf8').trim();
-    return raw ? normalizeBotState(JSON.parse(raw) as unknown) : structuredClone(DEFAULT_STATE);
-  } catch {
-    console.warn('Failed to parse state.json — starting fresh.');
-    return structuredClone(DEFAULT_STATE);
+    const raw = readFileSync(stateFile, 'utf8').trim();
+    if (!raw) throw new SyntaxError('State file is empty.');
+    return normalizeBotState(JSON.parse(raw) as unknown);
+  } catch (error: unknown) {
+    throw new Error(
+      `Failed to load ${path.basename(stateFile)}; existing state was preserved.`,
+      { cause: error }
+    );
   }
 }
 
-/** Persist the current state to state.json. */
-export function saveState(state: BotState): void {
-  writeFileSync(STATE_FILE, JSON.stringify(state, null, 2) + '\n', 'utf8');
+/** Persist state through a same-directory atomic rename. */
+export function saveState(state: BotState, stateFile = STATE_FILE): void {
+  const temporaryFile = `${stateFile}.${process.pid}.${randomUUID()}.tmp`;
+  try {
+    writeFileSync(temporaryFile, JSON.stringify(state, null, 2) + '\n', 'utf8');
+    renameSync(temporaryFile, stateFile);
+  } finally {
+    if (existsSync(temporaryFile)) unlinkSync(temporaryFile);
+  }
 }
 
 /** Build a platform-prefixed deduplication key for a live session. */
