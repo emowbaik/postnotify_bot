@@ -42,11 +42,8 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
       return checkError(username, 'TIKTOK_ROOM_API_ERROR', 'TikTok room details could not be loaded.');
     }
 
-    const title = roomData?.['title'] ?? username;
-    const viewerCount = Number(roomData?.['user_count'] ?? roomData?.['user_count_str'] ?? 0);
-    const thumbnailUrl = extractUrl(roomData?.['cover']?.['url_list']);
-    const profilePicUrl = extractUrl(roomData?.['owner']?.['avatar_thumb']?.['url_list']);
-    const startedAt = extractStartTime(roomData);
+    const room = normalizeTikTokRoomData(roomData, username);
+    const { title, viewerCount, thumbnailUrl, profilePicUrl, startedAt } = room;
 
     console.log(`[${username}] ✅ LIVE — room: ${roomId}, viewers: ${viewerCount}, title: ${title}`);
 
@@ -98,12 +95,9 @@ function checkError(username: string, errorCode: string, message: string): LiveC
 
 // ─── TikTok internal API ─────────────────────────────────────────────────────
 
-/**
- * Fetch full room detail from TikTok's webcast room info API.
- * This is the same endpoint the library uses internally.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchRoomDetail(roomId: string): Promise<Record<string, any> | null> {
+type JsonObject = Record<string, unknown>;
+
+async function fetchRoomDetail(roomId: string): Promise<JsonObject | null> {
   // Try multiple endpoints — TikTok sometimes blocks one but not the other
   const endpoints = [
     `https://webcast.tiktok.com/webcast/room/info/?aid=1988&room_id=${roomId}`,
@@ -124,13 +118,12 @@ async function fetchRoomDetail(roomId: string): Promise<Record<string, any> | nu
 
       if (!response.ok) continue;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const json = (await response.json()) as Record<string, any>;
-      const roomData = json['data'] ?? json['LiveRoomInfo'] ?? json['roomInfo'];
+      const json = asObject(await response.json() as unknown);
+      const roomData = json
+        ? json['data'] ?? json['LiveRoomInfo'] ?? json['roomInfo']
+        : null;
 
-      if (roomData && typeof roomData === 'object') {
-        return roomData as Record<string, any>;
-      }
+      if (isObject(roomData)) return roomData;
     } catch {
       // try next endpoint
     }
@@ -139,20 +132,72 @@ async function fetchRoomDetail(roomId: string): Promise<Record<string, any> | nu
   return null;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function extractUrl(urlList: unknown): string | null {
-  if (Array.isArray(urlList) && typeof urlList[0] === 'string') {
-    return urlList[0];
-  }
-  return null;
+interface NormalizedTikTokRoom {
+  title: string;
+  viewerCount: number;
+  thumbnailUrl: string | null;
+  profilePicUrl: string | null;
+  startedAt: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function extractStartTime(roomData: Record<string, any> | null): string {
-  const ts = roomData?.['create_time'] ?? roomData?.['start_time'];
-  if (typeof ts === 'number' && ts > 0) {
-    return new Date(ts * 1000).toISOString();
+export function normalizeTikTokRoomData(
+  value: unknown,
+  username: string
+): NormalizedTikTokRoom {
+  const room = asObject(value) ?? {};
+  const title = stringValue(room['title']) ?? username;
+  const viewerCount = nonNegativeInteger(room['user_count'] ?? room['user_count_str']);
+  const cover = asObject(room['cover']);
+  const owner = asObject(room['owner']);
+  const avatar = asObject(owner?.['avatar_thumb']);
+
+  return {
+    title,
+    viewerCount,
+    thumbnailUrl: extractUrl(cover?.['url_list']),
+    profilePicUrl: extractUrl(avatar?.['url_list']),
+    startedAt: extractStartTime(room),
+  };
+}
+
+function extractUrl(value: unknown): string | null {
+  if (!Array.isArray(value)) return null;
+  return value.find((item): item is string =>
+    typeof item === 'string' && /^https?:\/\//.test(item)
+  ) ?? null;
+}
+
+function extractStartTime(roomData: JsonObject): string {
+  const seconds = finiteNumber(roomData['create_time'] ?? roomData['start_time']);
+  if (seconds !== null && seconds > 0) {
+    const milliseconds = seconds * 1000;
+    if (Number.isFinite(milliseconds)) {
+      const date = new Date(milliseconds);
+      if (Number.isFinite(date.getTime())) return date.toISOString();
+    }
   }
   return new Date().toISOString();
+}
+
+function nonNegativeInteger(value: unknown): number {
+  const number = finiteNumber(value);
+  return number !== null && number >= 0 ? Math.floor(number) : 0;
+}
+
+function finiteNumber(value: unknown): number | null {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function stringValue(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function asObject(value: unknown): JsonObject | null {
+  return isObject(value) ? value : null;
+}
+
+function isObject(value: unknown): value is JsonObject {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
