@@ -12,6 +12,7 @@
 import { env } from './config/env.js';
 import { checkIsLive } from './tiktok/checkLive.js';
 import { checkYouTubeLive } from './youtube/checkLive.js';
+import { settleLiveChecks, type LiveCheckRequest } from './checks.js';
 import {
   sendAdminErrorNotification,
   sendAdminRecoveryNotification,
@@ -31,7 +32,7 @@ import {
   setPlatformError,
   setYouTubeActiveVideo,
 } from './state.js';
-import type { LiveCheckError, LiveCheckResult, LiveInfo } from './types.js';
+import type { LiveCheckError, LiveInfo } from './types.js';
 
 const DELAY_BETWEEN_NOTIFICATIONS_MS = 1_500;
 
@@ -101,32 +102,27 @@ async function run(): Promise<void> {
 
   // ─── 1. Check all creators in parallel ─────────────────────────────────────
   console.log('🔍 Checking live status...');
-  const checks: Array<Promise<LiveCheckResult>> = [
-    ...(tiktokEnabled ? tiktokUsernames.map((username) => checkIsLive(username)) : []),
+  const checks: LiveCheckRequest[] = [
+    ...(tiktokEnabled
+      ? tiktokUsernames.map((username) => ({
+          platform: 'tiktok' as const,
+          target: username,
+          promise: checkIsLive(username),
+        }))
+      : []),
     ...(youtubeEnabled
-      ? youtubeChannelIds.map((channelId) =>
-          checkYouTubeLive(
+      ? youtubeChannelIds.map((channelId) => ({
+          platform: 'youtube' as const,
+          target: channelId,
+          promise: checkYouTubeLive(
             channelId,
             youtubeApiKey ?? '',
             getYouTubeActiveVideo(state, channelId)
-          )
-        )
+          ),
+        }))
       : []),
   ];
-  const settled = await Promise.allSettled(checks);
-  const results: LiveCheckResult[] = settled.map((result, index) => {
-    if (result.status === 'fulfilled') return result.value;
-    const target = [...tiktokUsernames, ...youtubeChannelIds][index] ?? 'unknown';
-    const platform = index < tiktokUsernames.length ? 'tiktok' : 'youtube';
-    return {
-      status: 'error',
-      isLive: false,
-      platform,
-      username: target,
-      errorCode: `${platform.toUpperCase()}_UNEXPECTED_ERROR`,
-      message: `Unexpected ${platform} check failure.`,
-    };
-  });
+  const results = await settleLiveChecks(checks);
 
   const liveResults: LiveInfo[] = [];
   let offlineCount = 0;
