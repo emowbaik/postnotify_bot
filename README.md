@@ -15,8 +15,9 @@ Automated Discord notification bot that sends rich alerts when TikTok creators o
 - 🔕 Platform-prefixed session deduplication prevents repeated notifications for one broadcast
 - 🩺 Deduplicated admin error alerts and one-time recovery notifications
 - ⚡ Persistent active-video cache reduces YouTube API quota usage while a stream remains live
-- 🔒 Workflow concurrency guard prevents overlapping runs and duplicate sends
-- 💾 Persistent notification state through repository-backed `state.json`
+- 🔒 Workflow concurrency queues overlapping triggers without cancelling state-bearing runs
+- 💾 Corruption-safe, atomically written notification state through repository-backed `state.json`
+- 🧪 Dependency-free native regression suite for state, APIs, orchestration, Discord, and previews
 - 🧹 Automatic cleanup keeps only the latest workflow run
 - 🔄 Daily keepalive protects scheduled workflows from GitHub's 60-day inactivity disablement
 - ♾️ Self-triggering loop runs without an external scheduler or server
@@ -42,7 +43,9 @@ Automated Discord notification bot that sends rich alerts when TikTok creators o
         ↓
 [Route TikTok or YouTube embed to its configured Discord channel]
         ↓
-[Commit state.json, delete old runs, then sleep 300 seconds]
+[Atomically save state.json; rebase and retry its state-only commit]
+        ↓
+[Delete old runs, then sleep 300 seconds]
         ↓
 [repository_dispatch triggers next run]
         ↓
@@ -242,7 +245,7 @@ TikTok timeouts and connector/API failures are operational errors, not offline r
 
 ### Preview Image Text
 
-The workflow installs `fonts-noto-core` and `fonts-noto-cjk` before generating previews, so titles in Latin, Cyrillic, Greek, Chinese, Japanese, Korean, Arabic, Hebrew, Indic, and Thai render as real glyphs instead of placeholder boxes. Title lines wrap by estimated rendered width rather than character count, keeping long or wide-glyph titles clear of the right-side poster.
+The workflow installs `fonts-noto-core` and `fonts-noto-cjk` before generating previews, so titles in Latin, Cyrillic, Greek, Chinese, Japanese, Korean, Arabic, Hebrew, Indic, and Thai render as real glyphs instead of placeholder boxes. Title lines and creator names are bounded by estimated rendered width rather than character count, keeping long or wide-glyph text clear of the right-side poster.
 
 Emoji-presentation and pictographic characters are removed from the generated JPEG because Sharp cannot reliably rasterize color emoji fonts. The Discord embed title keeps the original title unchanged.
 
@@ -252,7 +255,7 @@ TikTok alerts use `TIKTOK_DISCORD_CHANNEL_ID` and `TIKTOK_DISCORD_MENTION`. YouT
 
 ### Changing the Polling Interval
 
-Edit `sleep 300` in `.github/workflows/live-monitor.yml`. Default: 300 seconds (approximately 5 minutes).
+Edit `sleep 300` in `.github/workflows/live-monitor.yml`. Default: 300 seconds (approximately 5 minutes). Keep `timeout-minutes` greater than the sleep plus setup, monitoring, state sync, and cleanup time; current job timeout is 15 minutes.
 
 ---
 
@@ -284,23 +287,26 @@ If GitHub disables the workflow anyway:
 
 ```text
 postnotify_bot/
-├── package.json                        # Dependencies and scripts
+├── package.json                        # Dependencies, runtime, test, and typecheck scripts
 ├── tsconfig.json                       # TypeScript configuration
 ├── state.json                          # Notified sessions, active video IDs, error fingerprints
+├── test/                               # Native regression tests (19 checks)
 ├── .github/
 │   └── workflows/
-│       └── live-monitor.yml            # Loop, cron, fonts, secrets, and keepalive
+│       └── live-monitor.yml            # Loop, cron, fonts, secrets, state sync, and keepalive
 └── src/
     ├── app.ts                          # Orchestration, state transitions, and alert routing
+    ├── checks.ts                       # Promise settlement with stable platform/target identity
     ├── types.ts                        # Live, offline, error, and persisted state types
-    ├── state.ts                        # State load, save, migration, cache, and deduplication
+    ├── state.ts                        # Atomic state, migration, cache, and deduplication
     ├── config/
     │   └── env.ts                      # GitHub Actions environment validation
     ├── tiktok/
-    │   └── checkLive.ts               # TikTok connector and webcast API detector
+    │   └── checkLive.ts               # TikTok detector and payload normalization
     ├── youtube/
     │   └── checkLive.ts               # Official YouTube Data API v3 detector
     └── discord/
+        ├── request.ts                  # Bounded Discord HTTP requests
         ├── sendEmbed.ts               # Live and operational Discord alerts
         └── thumbnail-generator.ts     # Multilingual 1280×720 JPEG generator
 ```
@@ -310,11 +316,21 @@ postnotify_bot/
 ## Requirements
 
 - **Bun 1.x** for installation and direct TypeScript execution
-- **Node.js 18+** for npm-based local tooling and native web APIs
+- **Node.js 22.6+** for the dependency-free native TypeScript regression suite
 - `sharp` for image generation
 - Noto fonts for non-Latin preview text; GitHub Actions installs `fonts-noto-core` and `fonts-noto-cjk` automatically, while local preview generation needs equivalent system fonts
 
 Dependencies are installed automatically during workflow runs.
+
+### Local Validation
+
+```bash
+npm test
+npm run typecheck
+npm audit --omit=dev
+```
+
+`npm test` runs mocked YouTube, TikTok payload, state migration/persistence, orchestration, Discord timeout, and real Sharp preview regressions without contacting production services.
 
 ---
 
@@ -324,8 +340,10 @@ Dependencies are installed automatically during workflow runs.
 - **YouTube quota:** YouTube checks use the official Data API v3 and are subject to the Google Cloud project's daily quota.
 - **API key security:** Restrict `YOUTUBE_API_KEY` to YouTube Data API v3. Never commit it or print full API request URLs.
 - **GitHub Actions minutes:** Public repositories receive unlimited standard Actions minutes. Private repository quotas depend on the account plan; a continuously sleeping loop consumes billed runner time.
-- **State management:** `state.json` stores notified sessions, active YouTube video IDs, and deduplicated operational errors; it is committed after each run.
-- **Concurrency:** `cancel-in-progress: true` allows only one active workflow in the `live-monitor` group.
+- **State management:** `state.json` stores notified sessions, active YouTube video IDs, and deduplicated operational errors. Invalid existing JSON stops the run without overwriting it; successful saves use a same-directory atomic rename.
+- **State synchronization:** The workflow rebases its state-only commit onto the latest default branch and retries rejected pushes up to three times. It never force-pushes.
+- **Discord availability:** Live, error, and recovery requests have a 15-second network deadline so outages cannot stall state processing indefinitely.
+- **Concurrency:** `cancel-in-progress: false` queues overlapping triggers so a run cannot be cancelled after sending Discord alerts but before persisting state.
 
 ---
 
