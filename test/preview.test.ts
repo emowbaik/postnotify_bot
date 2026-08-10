@@ -9,7 +9,7 @@ const previewInfo: LiveInfo = {
   isLive: true,
   platform: 'youtube',
   username: 'UCaaaaaaaaaaaaaaaaaaaaaa',
-  displayName: 'Multilingual Channel',
+  displayName: 'Multilingual 超長い配信者频道 이름 Канал ' + 'W'.repeat(80),
   roomId: 'abcdefghijk',
   title: 'WIN ONLY PRED RANK W/ ANYA & PACHI プレマス！やる！ 中文 한국어 Русский 🎮🔥 ' + 'W'.repeat(100),
   viewerCount: 12345,

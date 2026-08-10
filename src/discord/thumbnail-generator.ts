@@ -255,7 +255,7 @@ function createTextOverlay(info: LiveInfo): Buffer {
   const viewerRaw = info.viewerCount ?? 0;
   const viewers = escapeXml(viewerRaw > 0 ? formatViewerCount(viewerRaw) : '-');
   const duration = escapeXml(formatLiveDuration(info.startedAt));
-  const escapedCreatorName = escapeXml(creatorName);
+  const escapedCreatorName = escapeXml(fitTextToWidth(creatorName, 570, 28));
   const platform = platformLabel(info);
   const creatorRole = escapeXml(platform === 'YouTube' ? 'YouTube Live Channel' : 'TikTok Live Creator');
   const accentColor = platformAccentColor(info);
@@ -459,10 +459,6 @@ function fitTextToWidth(value: string, maximumWidth: number, fontSize: number): 
   return fitted.trimEnd() + suffix;
 }
 
-function truncate(value: string, maximumLength: number): string {
-  if (value.length <= maximumLength) return value;
-  return value.slice(0, maximumLength - 1) + '…';
-}
 
 function escapeXml(value: string): string {
   return value
