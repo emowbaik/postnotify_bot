@@ -154,4 +154,11 @@ Remediation regressions prove private/local targets are rejected before network 
 - Repository secret `LOOP_TOKEN` was deleted and absence verified. Account-level PAT revocation cannot be verified through repository APIs and remains a manual account action.
 - Repository-wide default workflow permission remains read-only; job permissions are explicit.
 
+### Repository Security Services
+
+- Secret scanning is enabled; current open alerts: 0.
+- Dependabot vulnerability alerts are enabled; current open alerts: 0.
+- CodeQL default setup is enabled for GitHub Actions and JavaScript/TypeScript with weekly scans; initial run [`31393645930`](https://github.com/emowbaik/postnotify_bot/actions/runs/31393645930) completed successfully; current open alerts: 0.
+- Secret scanning push protection, non-provider patterns, and validity checks remain disabled because they were outside this activation request.
+
 Security probes must use local mock servers and fake credentials. Never target production metadata services or include real secrets in fixtures.
