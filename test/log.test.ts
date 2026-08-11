@@ -17,3 +17,14 @@ test('untrusted platform text becomes one bounded physical log value', () => {
 test('sanitizer preserves ordinary multilingual text', () => {
   assert.equal(safeLogValue('直播 сейчас 라이브'), '"直播 сейчас 라이브"');
 });
+
+test('configured target and session identifiers stay on one bounded physical line', () => {
+  for (const value of [
+    'creator\n::warning title=forged::payload',
+    `room\r\n${'x'.repeat(500)}`,
+  ]) {
+    const sanitized = safeLogValue(value);
+    assert.equal(/[\r\n]/u.test(sanitized), false);
+    assert.ok((JSON.parse(sanitized) as string).length <= 300);
+  }
+});

@@ -24,7 +24,7 @@ export async function checkYouTubeLive(channelId: string, apiKey: string, knownA
     return active ? await toLiveInfo(active, target, apiKey) : offline(target);
   } catch (error: unknown) {
     const normalized = normalizeError(error);
-    console.warn(`[YouTube:${target}] [ERROR] ${normalized.message}`);
+    console.warn(`[YouTube:${safeLogValue(target)}] [ERROR] ${safeLogValue(normalized.message)}`);
     return errorResult(target, normalized.code, normalized.message);
   }
 }
@@ -91,11 +91,11 @@ async function toLiveInfo(video: ApiItem, channelId: string, apiKey: string): Pr
     profilePicUrl: bestThumbnail(channelSnippet.thumbnails), liveUrl: `https://www.youtube.com/watch?v=${videoId}`,
     profileUrl: `https://www.youtube.com/channel/${channelId}`, startedAt: stringValue(details.actualStartTime) ?? new Date().toISOString(),
   };
-  console.log(`[YouTube:${channelId}] [LIVE] video: ${videoId}, viewers: ${info.viewerCount}, title: ${safeLogValue(info.title)}`);
+  console.log(`[YouTube:${safeLogValue(channelId)}] [LIVE] video: ${safeLogValue(videoId)}, viewers: ${info.viewerCount}, title: ${safeLogValue(info.title)}`);
   return info;
 }
 function offline(channelId: string): LiveCheckResult {
-  console.log(`[YouTube:${channelId}] [OFFLINE] Not live.`);
+  console.log(`[YouTube:${safeLogValue(channelId)}] [OFFLINE] Not live.`);
   return { status: 'offline', isLive: false, platform: 'youtube', username: channelId };
 }
 function errorResult(username: string, errorCode: string, message: string): LiveCheckError {

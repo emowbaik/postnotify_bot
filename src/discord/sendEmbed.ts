@@ -16,6 +16,8 @@ import type {
 } from '../types.js';
 import { generateLivePreview } from './thumbnail-generator.js';
 import { fetchDiscord } from './request.js';
+import { assertChannelId, assertMention } from './validation.js';
+import { safeLogValue } from '../log.js';
 
 const DISCORD_API = 'https://discord.com/api/v10';
 const PLATFORM_COLOR = {
@@ -33,6 +35,7 @@ export async function sendLiveNotification(
   mention?: string
 ): Promise<void> {
   validateNotificationInput(botToken, channelId, liveInfo);
+  assertMention(mention);
 
   const previewBuffer = await generateLivePreview(liveInfo);
 
@@ -73,7 +76,7 @@ export async function sendLiveNotification(
   }
 
   console.log(
-    `[Discord] ✅ ${platformLabel(liveInfo)} notification sent for ${displayCreatorName(liveInfo)}`
+    `[Discord] ✅ ${platformLabel(liveInfo)} notification sent for ${safeLogValue(displayCreatorName(liveInfo))}`
   );
 }
 
@@ -83,6 +86,8 @@ export async function sendAdminErrorNotification(
   error: LiveCheckError,
   mention?: string
 ): Promise<void> {
+  assertChannelId(channelId);
+  assertMention(mention);
   await sendJsonMessage(botToken, channelId, {
     ...(mention?.trim() && { content: mention.trim() }),
     allowed_mentions: buildAllowedMentions(mention),
@@ -107,6 +112,8 @@ export async function sendAdminRecoveryNotification(
   previousError: PersistedPlatformError,
   mention?: string
 ): Promise<void> {
+  assertChannelId(channelId);
+  assertMention(mention);
   await sendJsonMessage(botToken, channelId, {
     ...(mention?.trim() && { content: mention.trim() }),
     allowed_mentions: buildAllowedMentions(mention),
@@ -129,7 +136,8 @@ async function sendJsonMessage(
   channelId: string,
   payload: DiscordMessagePayload
 ): Promise<void> {
-  if (!botToken.trim() || !channelId.trim()) throw new Error('Discord admin route is invalid.');
+  if (!botToken.trim()) throw new Error('Discord admin route is invalid.');
+  assertChannelId(channelId);
   const response = await fetchDiscord(`${DISCORD_API}/channels/${channelId}/messages`, {
     method: 'POST',
     headers: {
@@ -281,12 +289,13 @@ function truncate(value: string, maximumLength: number): string {
 
 function validateNotificationInput(botToken: string, channelId: string, info: LiveInfo): void {
   if (!botToken?.trim()) throw new Error('Discord bot token tidak boleh kosong.');
-  if (!channelId?.trim()) throw new Error('Discord channel ID tidak boleh kosong.');
+  assertChannelId(channelId);
   if (!info.username?.trim()) throw new Error('LiveInfo.username tidak boleh kosong.');
   if (!info.displayName?.trim()) throw new Error('LiveInfo.displayName tidak boleh kosong.');
   if (!isHttpUrl(info.liveUrl)) throw new Error('LiveInfo.liveUrl bukan URL HTTP/HTTPS yang valid.');
   if (!isHttpUrl(info.profileUrl)) throw new Error('LiveInfo.profileUrl bukan URL HTTP/HTTPS yang valid.');
 }
+
 
 function isHttpUrl(value?: string | null): value is string {
   if (!value) return false;

@@ -106,16 +106,16 @@ Go to your repository → **Settings → Secrets and variables → Actions → N
 
 | Secret | Required | Description |
 |--------|:--------:|-------------|
-| `DISCORD_BOT_TOKEN` | ✅ | Shared Discord bot token from Step 2 |
-| `TIKTOK_USERNAMES` | ❌ | Comma-separated TikTok usernames without `@`; enables TikTok monitoring |
-| `TIKTOK_DISCORD_CHANNEL_ID` | Conditional | Required when `TIKTOK_USERNAMES` is set |
-| `TIKTOK_DISCORD_MENTION` | ❌ | Optional ping for TikTok alerts |
-| `YOUTUBE_CHANNEL_IDS` | ❌ | Comma-separated immutable `UC...` channel IDs; maximum 10 |
+| `DISCORD_BOT_TOKEN` | ✅ | Shared Discord bot token from Step 2; treated as opaque credential |
+| `TIKTOK_USERNAMES` | ❌ | Up to 10 comma-separated usernames; 2–24 letters, digits, `_`, or `.`; optional leading `@` is removed |
+| `TIKTOK_DISCORD_CHANNEL_ID` | Conditional | Required when `TIKTOK_USERNAMES` is set; 17–20 digit Discord snowflake |
+| `TIKTOK_DISCORD_MENTION` | ❌ | One supported ping value from the mention table below |
+| `YOUTUBE_CHANNEL_IDS` | ❌ | Up to 10 comma-separated immutable `UC...` channel IDs |
 | `YOUTUBE_API_KEY` | Conditional | Required when `YOUTUBE_CHANNEL_IDS` is set; YouTube Data API v3 key |
-| `YOUTUBE_DISCORD_CHANNEL_ID` | Conditional | Required when `YOUTUBE_CHANNEL_IDS` is set |
-| `YOUTUBE_DISCORD_MENTION` | ❌ | Optional ping for YouTube alerts |
-| `ADMIN_DISCORD_CHANNEL_ID` | Conditional | Required whenever TikTok or YouTube monitoring is configured |
-| `ADMIN_DISCORD_MENTION` | ❌ | Optional ping for new operational errors and recovery alerts |
+| `YOUTUBE_DISCORD_CHANNEL_ID` | Conditional | Required when `YOUTUBE_CHANNEL_IDS` is set; 17–20 digit Discord snowflake |
+| `YOUTUBE_DISCORD_MENTION` | ❌ | One supported ping value from the mention table below |
+| `ADMIN_DISCORD_CHANNEL_ID` | Conditional | Required whenever monitoring is configured; 17–20 digit Discord snowflake |
+| `ADMIN_DISCORD_MENTION` | ❌ | One supported ping value from the mention table below |
 
 **Creator examples:**
 
@@ -162,7 +162,7 @@ Find a YouTube channel ID in the channel page source, an About-page URL, or thro
 | `<@&ROLE_ID>` | Pings a specific role |
 | `<@USER_ID>` | Pings a specific user |
 
-Leave either mention secret unset to send that platform's notification without a ping.
+Each mention secret accepts zero or one exact value. Multiple mentions, free text, control characters, and values over the configuration ceiling are rejected before logging or network use. Leave a mention secret unset to send that route's notification without a ping.
 
 ### Step 5 — Enable GitHub Actions
 

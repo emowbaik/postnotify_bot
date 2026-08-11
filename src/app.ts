@@ -33,6 +33,7 @@ import {
   setYouTubeActiveVideo,
 } from './state.js';
 import type { LiveCheckError, LiveInfo } from './types.js';
+import { safeLogValue } from './log.js';
 
 const DELAY_BETWEEN_NOTIFICATIONS_MS = 1_500;
 
@@ -66,8 +67,8 @@ async function run(): Promise<void> {
     (youtubeEnabled ? youtubeChannelIds.length : 0);
 
   console.log(`\n🚀 postnotify_bot starting — monitoring ${totalTargets} creator(s)`);
-  console.log(`   TikTok: ${tiktokEnabled ? tiktokUsernames.join(', ') : 'disabled'}`);
-  console.log(`   YouTube: ${youtubeEnabled ? youtubeChannelIds.join(', ') : 'disabled'}\n`);
+  console.log(`   TikTok: ${tiktokEnabled ? tiktokUsernames.map(safeLogValue).join(', ') : 'disabled'}`);
+  console.log(`   YouTube: ${youtubeEnabled ? youtubeChannelIds.map(safeLogValue).join(', ') : 'disabled'}\n`);
 
   if (tiktokUsernames.length > 0 && !tiktokDiscordChannelId) {
     console.warn('[TikTok] ⚠️ TIKTOK_DISCORD_CHANNEL_ID missing — TikTok monitoring disabled.');
@@ -83,13 +84,6 @@ async function run(): Promise<void> {
   }
   if (youtubeChannelIds.length > 0 && !youtubeApiKey) {
     throw new Error('YOUTUBE_API_KEY is required when YOUTUBE_CHANNEL_IDS is configured.');
-  }
-  if (youtubeChannelIds.length > 10) {
-    throw new Error('YOUTUBE_CHANNEL_IDS supports at most 10 channels to protect API quota.');
-  }
-  const invalidYouTubeId = youtubeChannelIds.find((id) => !/^UC[\w-]{20,}$/.test(id));
-  if (invalidYouTubeId) {
-    throw new Error(`Invalid YouTube channel ID: ${invalidYouTubeId}`);
   }
 
   if (!tiktokEnabled && !youtubeEnabled) {
@@ -177,7 +171,7 @@ async function run(): Promise<void> {
     const sessionKey = buildSessionKey(liveInfo.platform, liveInfo.username, liveInfo.roomId);
 
     if (hasNotified(state, sessionKey)) {
-      console.log(`[${liveInfo.platform}:${liveInfo.username}] Already notified for session ${liveInfo.roomId} — skipping.`);
+      console.log(`[${liveInfo.platform}:${safeLogValue(liveInfo.username)}] Already notified for session ${safeLogValue(liveInfo.roomId)} — skipping.`);
       continue;
     }
 
@@ -199,9 +193,8 @@ async function run(): Promise<void> {
         await delay(DELAY_BETWEEN_NOTIFICATIONS_MS);
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
       console.error(
-        `[${liveInfo.platform}:${liveInfo.username}] ❌ Failed to send Discord notification: ${message}`
+        `[${liveInfo.platform}:${safeLogValue(liveInfo.username)}] ❌ Failed to send Discord notification: ${safeLogValue(errorMessage(error))}`
       );
       // Don't mark as notified — will retry next cycle.
     }
@@ -223,7 +216,7 @@ async function handleCheckError(
 ): Promise<void> {
   const fingerprint = `${error.platform}:${error.username}:${error.errorCode}`;
   if (getPlatformError(state, error.platform, error.username)?.fingerprint === fingerprint) {
-    console.log(`[${error.platform}:${error.username}] Error already reported: ${error.errorCode}`);
+    console.log(`[${error.platform}:${safeLogValue(error.username)}] Error already reported: ${safeLogValue(error.errorCode)}`);
     return;
   }
 
@@ -238,7 +231,7 @@ async function handleCheckError(
       firstSeenAt: new Date().toISOString(),
     });
   } catch (sendError: unknown) {
-    console.error(`[Admin] Failed to send error alert: ${errorMessage(sendError)}`);
+    console.error(`[Admin] Failed to send error alert: ${safeLogValue(errorMessage(sendError))}`);
   }
 }
 
@@ -257,7 +250,7 @@ async function handleRecovery(
     await sendAdminRecoveryNotification(botToken, adminChannelId, previous, mention);
     clearPlatformError(state, platform, target);
   } catch (error: unknown) {
-    console.error(`[Admin] Failed to send recovery alert: ${errorMessage(error)}`);
+    console.error(`[Admin] Failed to send recovery alert: ${safeLogValue(errorMessage(error))}`);
   }
 }
 
@@ -286,7 +279,6 @@ function getDiscordRoute(
 }
 
 void run().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error('\n❌ Fatal error:', message);
+  console.error('\n❌ Fatal error:', safeLogValue(errorMessage(error)));
   process.exit(1);
 });

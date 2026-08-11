@@ -17,7 +17,7 @@ import type { LiveCheckResult } from '../types.js';
  * @param username - TikTok username WITHOUT the @ symbol.
  */
 export async function checkIsLive(username: string): Promise<LiveCheckResult> {
-  const liveUrl = `https://www.tiktok.com/@${username}/live`;
+  const liveUrl = `https://www.tiktok.com/@${encodeURIComponent(username)}/live`;
   const connection = new TikTokLiveConnection(username, {});
 
   try {
@@ -25,7 +25,7 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
     const isLive = await connection.fetchIsLive();
 
     if (!isLive) {
-      console.log(`[${username}] 💤 Not live.`);
+      console.log(`[${safeLogValue(username)}] 💤 Not live.`);
       return { status: 'offline', isLive: false, platform: 'tiktok', username };
     }
 
@@ -33,7 +33,7 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
     const roomId = await connection.fetchRoomId();
 
     if (!roomId) {
-      console.warn(`[${username}] [ERROR] Live status returned no room ID.`);
+      console.warn(`[${safeLogValue(username)}] [ERROR] Live status returned no room ID.`);
       return checkError(username, 'TIKTOK_ROOM_ID_MISSING', 'TikTok live status returned no room ID.');
     }
 
@@ -46,7 +46,7 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
     const room = normalizeTikTokRoomData(roomData, username);
     const { title, viewerCount, thumbnailUrl, profilePicUrl, startedAt } = room;
 
-    console.log(`[${username}] ✅ LIVE — room: ${roomId}, viewers: ${viewerCount}, title: ${safeLogValue(title)}`);
+    console.log(`[${safeLogValue(username)}] ✅ LIVE — room: ${safeLogValue(roomId)}, viewers: ${viewerCount}, title: ${safeLogValue(title)}`);
 
     return {
       status: 'live',
@@ -75,7 +75,7 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
       lower.includes('useroflline');
 
     if (isConfirmedOffline) {
-      console.log(`[${username}] 💤 Not live.`);
+      console.log(`[${safeLogValue(username)}] 💤 Not live.`);
       return { status: 'offline', isLive: false, platform: 'tiktok', username };
     }
 
@@ -85,7 +85,7 @@ export async function checkIsLive(username: string): Promise<LiveCheckResult> {
     const safeMessage = isTimeout
       ? 'TikTok request timed out.'
       : 'TikTok live check failed.';
-    console.warn(`[${username}] [ERROR] ${safeMessage}`);
+    console.warn(`[${safeLogValue(username)}] [ERROR] ${safeMessage}`);
     return checkError(username, code, safeMessage);
   }
 }
@@ -100,10 +100,13 @@ type JsonObject = Record<string, unknown>;
 
 async function fetchRoomDetail(roomId: string): Promise<JsonObject | null> {
   // Try multiple endpoints — TikTok sometimes blocks one but not the other
-  const endpoints = [
-    `https://webcast.tiktok.com/webcast/room/info/?aid=1988&room_id=${roomId}`,
-    `https://www.tiktok.com/api/live/detail/?aid=1988&roomID=${roomId}`,
-  ];
+  const roomInfoUrl = new URL('https://webcast.tiktok.com/webcast/room/info/');
+  roomInfoUrl.searchParams.set('aid', '1988');
+  roomInfoUrl.searchParams.set('room_id', roomId);
+  const liveDetailUrl = new URL('https://www.tiktok.com/api/live/detail/');
+  liveDetailUrl.searchParams.set('aid', '1988');
+  liveDetailUrl.searchParams.set('roomID', roomId);
+  const endpoints = [roomInfoUrl, liveDetailUrl];
 
   for (const url of endpoints) {
     try {

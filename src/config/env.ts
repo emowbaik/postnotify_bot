@@ -1,67 +1,9 @@
 /**
- * Environment variable configuration with validation.
- * All secrets are injected by GitHub Actions from repository secrets.
+ * Runtime environment configuration.
+ * Pure validation lives in readEnv.ts so tests never mutate process.env.
  */
 
-function requireEnv(key: string): string {
-  const value = process.env[key];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${key}`);
-  }
-  return value;
-}
+import { readEnv } from './readEnv.js';
 
-function optionalEnv(key: string): string | undefined {
-  return process.env[key] || undefined;
-}
-
-function splitCsv(value?: string): string[] {
-  return [...new Set(
-    value
-      ?.split(',')
-      .map((item) => item.trim())
-      .filter(Boolean) ?? []
-  )];
-}
-
-export const env = {
-  /** Discord Bot Token (Bot MTIz...) */
-  discordBotToken: requireEnv('DISCORD_BOT_TOKEN'),
-
-  /** Optional Discord channel ID for TikTok notifications. */
-  tiktokDiscordChannelId: optionalEnv('TIKTOK_DISCORD_CHANNEL_ID'),
-
-  /**
-   * Comma-separated TikTok usernames (without @).
-   * Empty or absent disables TikTok monitoring.
-   */
-  tiktokUsernames: splitCsv(optionalEnv('TIKTOK_USERNAMES'))
-    .map((username) => username.replace(/^@/, '')),
-
-  /**
-   * Optional: Discord role/user mention prepended to TikTok notifications.
-   * Example: "<@&123456789>" or "@everyone"
-   */
-  tiktokDiscordMention: optionalEnv('TIKTOK_DISCORD_MENTION'),
-
-  /**
-   * Comma-separated list of YouTube channel IDs (`UC...`) to monitor.
-   * Empty or absent disables YouTube monitoring.
-   */
-  youtubeChannelIds: splitCsv(optionalEnv('YOUTUBE_CHANNEL_IDS')),
-
-  /** Official YouTube Data API v3 key; required when YouTube monitoring is active. */
-  youtubeApiKey: optionalEnv('YOUTUBE_API_KEY'),
-
-  /** Discord channel used only for YouTube live notifications. */
-  youtubeDiscordChannelId: optionalEnv('YOUTUBE_DISCORD_CHANNEL_ID'),
-
-  /** Optional role/user/everyone mention for YouTube notifications. */
-  youtubeDiscordMention: optionalEnv('YOUTUBE_DISCORD_MENTION'),
-
-  /** Required operational alert channel when either platform is active. */
-  adminDiscordChannelId: optionalEnv('ADMIN_DISCORD_CHANNEL_ID'),
-
-  /** Optional mention for new operational errors and recovery alerts. */
-  adminDiscordMention: optionalEnv('ADMIN_DISCORD_MENTION'),
-} as const;
+export { readEnv } from './readEnv.js';
+export const env = readEnv(process.env);
