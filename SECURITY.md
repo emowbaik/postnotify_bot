@@ -11,18 +11,40 @@ Include affected revision, reproduction steps, impact, and suggested mitigation.
 - **Initial audit date:** 2026-08-10
 - **Initial revision:** `55dc808a7a482f86aebebcfa7546f24466bbcd1d`
 - **Remediation verification date:** 2026-08-10
-- **Scope:** tracked source, tests, workflow, dependency manifests, current Git history, and outbound network boundaries
-- **Automated checks:** 26 tests passed; strict TypeScript passed; `npm audit` found 0 known vulnerabilities; workflow YAML parsed
+- **Re-audit date:** 2026-08-11
+- **Re-audit revision:** `7a1ca58a17e50e4b6bb474ab32dcf5ca80eb099a`
+- **Scope:** 31 tracked files, 189 reachable commits, dependency tree, workflow, live repository settings, integrations, scanners, and outbound network boundaries
+- **Automated checks:** 26 tests passed; strict TypeScript passed; `npm audit` found 0 known vulnerabilities; all 94 packages have verified registry signatures; workflow security assertions passed; CodeQL checks passed
 
 | Severity | Open findings | Remediated findings |
 |---|---:|---:|
 | Critical | 0 | 0 |
 | High | 0 | 2 |
 | Medium | 0 | 3 |
-| Low | 0 | 2 |
+| Low | 2 | 2 |
 
 > [!IMPORTANT]
-> All seven findings below are remediated in source and covered by local acceptance checks. Live GitHub Actions verification is recorded separately; historical finding descriptions remain for audit traceability.
+> All seven historical findings remain remediated. Re-audit found two low-severity defense-in-depth gaps below; neither exposes a credential by itself, and neither is recorded as fixed.
+
+## Open Findings
+
+### SEC-008 — Low — Repository-secret configuration lacks strict bounds
+
+**Status:** Open — configured targets, Discord IDs, and mentions are checked mainly for presence. Multiline TikTok targets can create command-shaped GitHub Actions log lines, while oversized mentions can build Discord payloads beyond the platform content limit. Exploitation requires repository-secret administration, which already grants privileged configuration access.
+
+**OWASP:** A04 Insecure Design
+**CWE:** CWE-20 Improper Input Validation; CWE-117 Improper Output Neutralization for Logs
+
+[`src/config/env.ts`](src/config/env.ts) should enforce conservative character sets, counts, and lengths for TikTok usernames, Discord snowflakes, mentions, and CSV aggregates. Every configured or platform-supplied value written to logs should pass through [`safeLogValue()`](src/log.ts). Add regressions for multiline targets and oversized mentions.
+
+### SEC-009 — Low — Default branch accepts unsigned direct pushes
+
+**Status:** Open — live settings show no branch protection or ruleset, no required status checks, and the latest 30 commits are unsigned. Only owner `emowbaik` currently has direct access, limiting exposure.
+
+**OWASP:** A08 Software and Data Integrity Failures
+**CWE:** CWE-353 Missing Support for Integrity Check
+
+Add a `master` branch ruleset requiring pull requests, successful CodeQL checks, conversation resolution, and no force-push/deletion. Evaluate verified-signature enforcement against automated `state.json` commits before enabling it so monitoring remains operational.
 
 ## Remediated Findings
 
