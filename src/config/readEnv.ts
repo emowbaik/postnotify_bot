@@ -103,4 +103,3 @@ export function readEnv(source: EnvSource) {
     adminDiscordMention: discordMention(source, 'ADMIN_DISCORD_MENTION'),
   } as const;
 }
-
