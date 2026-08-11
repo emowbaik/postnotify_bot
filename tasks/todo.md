@@ -23,6 +23,19 @@
 - [x] Verify old monitor runs are deleted while active/current run and other workflows remain.
 - [x] Verify default-branch sync, required checks, alerts, PRs, and clean working tree.
 
+## SEC-008 and SEC-009 Closure
+
+- [x] Validate and bound every repository-secret configuration input.
+- [x] Sanitize configured and external identifiers at log boundaries.
+- [x] Revalidate Discord routes and mentions at final send boundaries.
+- [x] Move runtime state to dedicated non-code `postnotify-state` history.
+- [x] Protect `postnotify-state` against deletion and force pushes with zero bypasses.
+- [x] Protect `master` through PRs and two strict CodeQL checks with zero bypasses.
+- [x] Prove owner direct push, state force push, and state deletion are rejected.
+- [x] Prove normal state fast-forward and automated bot persistence succeed.
+- [x] Run production canary through app, state, wait, successor, and cleanup.
+- [x] Verify alerts, PRs, temporary branches, local sync, and working tree.
+
 ## Review
 
-Security remediation verification remains passed: 26/26 tests, strict TypeScript, 0 dependency vulnerabilities, valid workflow YAML, isolated permissions, and clean diff checks. Workflow-run cleanup was restored in commits `ab15e01` and `8c69f0c`. Live cleanup reduced monitor history from 108 runs to one active run and zero completed runs. Live job `93619766209` deleted completed runs `31439004948` and `31438703329` while preserving active run `31439095109`; CodeQL retained all eight completed runs. Repository `LOOP_TOKEN` secret remains deleted. Account PAT revocation remains user-verifiable only.
+All nine audit findings are remediated. Final gate: 39/39 tests, strict TypeScript, 0 dependency vulnerabilities, 94/94 verified package signatures, 36 attestations, valid workflow YAML, both CodeQL analyses successful, and zero open secret/Dependabot/code-scanning alerts. Rulesets `20684394` and `20685862` are active with zero bypasses. Protected production run `31478492426` created bot state commit `a34105d`, removed deterministic canary `7a2876d`, preserved runtime state, completed wait/self-dispatch, and created successor `31478909191`; cleanup job `93737733511` succeeded. Open PRs and temporary remote branches are zero. Account PAT revocation and real active-YouTube observation remain outside repository-verifiable closure.
