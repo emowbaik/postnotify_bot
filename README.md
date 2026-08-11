@@ -6,7 +6,7 @@ Automated Discord notification bot that sends rich alerts when TikTok creators o
 
 ![PostNotify Bot repository architecture](assets/repo_infographic.png)
 
-The runtime forms one repository-backed loop: GitHub Actions triggers parallel detectors, [`app.ts`](src/app.ts) classifies results and deduplicates sessions through [`state.ts`](src/state.ts), [`src/discord`](src/discord) builds secure previews and routes notifications, then the workflow atomically syncs state and dispatches the next cycle.
+The runtime forms one repository-backed loop: GitHub Actions loads operational `state.json` from dedicated `postnotify-state`, triggers parallel detectors, [`app.ts`](src/app.ts) classifies results and deduplicates sessions through [`state.ts`](src/state.ts), [`src/discord`](src/discord) builds secure previews and routes notifications, then the workflow atomically syncs state back to that non-code branch and dispatches the next cycle.
 
 ---
 
@@ -37,6 +37,8 @@ The runtime forms one repository-backed loop: GitHub Actions triggers parallel d
 ```text
 [manual dispatch or daily cron at 00:00 UTC]
         ↓
+[Load state.json from fast-forward-only postnotify-state branch]
+        ↓
 [Check configured TikTok usernames and YouTube channel IDs in parallel]
         ↓
 [Classify each result as live, offline, or operational error]
@@ -51,7 +53,7 @@ The runtime forms one repository-backed loop: GitHub Actions triggers parallel d
         ↓
 [Route TikTok or YouTube embed to its configured Discord channel]
         ↓
-[Atomically save state.json; rebase and retry its state-only commit]
+[Atomically save state.json; fast-forward state-only branch with retry]
         ↓
 [sleep 300 seconds]
         ↓
@@ -164,7 +166,25 @@ Find a YouTube channel ID in the channel page source, an About-page URL, or thro
 
 Each mention secret accepts zero or one exact value. Multiple mentions, free text, control characters, and values over the configuration ceiling are rejected before logging or network use. Leave a mention secret unset to send that route's notification without a ping.
 
-### Step 5 — Enable GitHub Actions
+### Step 5 — Create Runtime State Branch
+
+Forks need one non-code branch before the first monitor run:
+
+```bash
+git switch --orphan postnotify-state
+git rm -rf .
+git checkout master -- state.json
+git add state.json
+git commit -m "chore: initialize runtime state branch"
+git push origin postnotify-state
+git switch master
+```
+
+In **Settings → Rules → Rulesets**, protect only `postnotify-state` against deletion and non-fast-forward pushes. Do not require pull requests or status checks on this branch: the short-lived workflow token needs normal fast-forward writes. Keep `master` protected separately through pull requests and CodeQL.
+
+The workflow executes source only from the default branch. `postnotify-state` contains only `state.json`; it never supplies application code or workflow definitions.
+
+### Step 6 — Enable GitHub Actions
 
 1. Go to the **Actions** tab in your repository
 2. Click **"I understand my workflows, go ahead and enable them"** if prompted
@@ -290,12 +310,12 @@ If GitHub disables the workflow anyway:
 postnotify_bot/
 ├── package.json                        # Dependencies, runtime, test, and typecheck scripts
 ├── tsconfig.json                       # TypeScript configuration
-├── state.json                          # Notified sessions, active video IDs, error fingerprints
-├── test/                               # Native regression tests (26 checks)
+├── state.json                          # Bootstrap copy; runtime state lives on postnotify-state
+├── test/                               # Native regression tests (39 checks)
 ├── tasks/                              # Remediation checklist and lessons
 ├── .github/
 │   └── workflows/
-│       └── live-monitor.yml            # Pinned loop, isolated cleanup, state sync, and keepalive
+│       └── live-monitor.yml            # Pinned loop, state-branch sync, cleanup, and keepalive
 └── src/
     ├── app.ts                          # Orchestration, state transitions, and alert routing
     ├── checks.ts                       # Promise settlement with stable platform/target identity
@@ -344,10 +364,10 @@ npm audit --omit=dev
 - **API key security:** Restrict `YOUTUBE_API_KEY` to YouTube Data API v3. Never commit it or print full API request URLs.
 - **GitHub Actions minutes:** Public repositories receive unlimited standard Actions minutes. Private repository quotas depend on the account plan; a continuously sleeping loop consumes billed runner time.
 - **State management:** `state.json` stores notified sessions, active YouTube video IDs, and deduplicated operational errors. Invalid existing JSON stops the run without overwriting it; successful saves use a same-directory atomic rename.
-- **State synchronization:** The workflow rebases its state-only commit onto the latest default branch and retries rejected pushes up to three times. It never force-pushes.
+- **State synchronization:** Operational state lives on dedicated `postnotify-state`, which accepts only fast-forward history and contains no executable source. Each run loads that branch before monitoring and retries state-only pushes up to three times. It never writes state to or force-pushes `master`.
 - **Discord availability:** Live, error, and recovery requests have a 15-second network deadline so outages cannot stall state processing indefinitely.
 - **Supply chain:** Workflow Actions and Bun use immutable reviewed versions. Dependencies install only through `npm ci` and tracked integrity hashes.
-- **Workflow credentials:** Bot/API secrets exist only in the monitor step. State push and self-dispatch use a short-lived job token; checkout credentials are not persisted.
+- **Workflow credentials:** Bot/API secrets exist only in the monitor step. State-branch push and self-dispatch use a short-lived job token; checkout credentials are not persisted.
 - **Actions cleanup:** A separate secret-free job with only `actions: write` permanently deletes completed `live-monitor.yml` runs. It never targets active/queued runs or another workflow's history.
 - **Concurrency:** `cancel-in-progress: false` queues overlapping triggers so a run cannot be cancelled after sending Discord alerts but before persisting state.
 

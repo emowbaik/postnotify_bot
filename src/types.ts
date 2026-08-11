@@ -63,7 +63,7 @@ export interface PersistedPlatformError {
   firstSeenAt: string;
 }
 
-/** Persisted state stored in state.json and committed to the repo. */
+/** Persisted state stored as state.json on the non-code postnotify-state branch. */
 export interface BotState {
   /**
    * Set of session keys that have already been notified.

@@ -2,8 +2,8 @@
  * State management — loads and saves state.json to track which live sessions
  * have already been notified, preventing duplicate Discord notifications.
  *
- * The state file is committed back to the repository by the GitHub Actions
- * workflow after each run, so it persists across workflow executions.
+ * The workflow materializes state.json from the dedicated postnotify-state
+ * branch before each run and fast-forwards that non-code branch afterward.
  */
 
 import { existsSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'fs';
