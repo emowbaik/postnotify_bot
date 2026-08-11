@@ -11,14 +11,5 @@
     "UCbbb5_EsXnluFbpfVFUSjZw": "kn3wLBGp6XE",
     "UC5v2QgY2D5tlu8uws23MG4Q": "SBzdOV3x1Fs"
   },
-  "platformErrors": {
-    "tiktok:kusugashiroo": {
-      "fingerprint": "tiktok:kusugashiroo:TIKTOK_CONNECTOR_ERROR",
-      "platform": "tiktok",
-      "target": "kusugashiroo",
-      "errorCode": "TIKTOK_CONNECTOR_ERROR",
-      "message": "TikTok live check failed.",
-      "firstSeenAt": "2026-08-11T18:16:46.688Z"
-    }
-  }
+  "platformErrors": {}
 }
