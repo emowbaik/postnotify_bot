@@ -11,5 +11,40 @@
     "UCbbb5_EsXnluFbpfVFUSjZw": "kn3wLBGp6XE",
     "UC5v2QgY2D5tlu8uws23MG4Q": "SBzdOV3x1Fs"
   },
-  "platformErrors": {}
+  "platformErrors": {},
+  "detectorDiagnostics": {
+    "kusugashiroo": {
+      "platform": "tiktok",
+      "target": "kusugashiroo",
+      "classification": "offline",
+      "sourceOutcomes": [
+        "isLive:false",
+        "roomId:present",
+        "liveDetail:http_400",
+        "roomInfo:ok",
+        "composite:false",
+        "resolvedRoomId:present",
+        "room:status_4"
+      ],
+      "roomIdSuffix": "32283412",
+      "observedAt": "2026-08-12T01:50:10.573Z"
+    },
+    "zepphhyyrr_": {
+      "platform": "tiktok",
+      "target": "zepphhyyrr_",
+      "classification": "offline",
+      "sourceOutcomes": [
+        "isLive:false",
+        "roomId:present",
+        "liveDetail:http_400",
+        "roomInfo:ok",
+        "composite:false",
+        "resolvedRoomId:present",
+        "room:status_4"
+      ],
+      "roomIdSuffix": "10590484",
+      "observedAt": "2026-08-12T01:50:10.707Z"
+    }
+  },
+  "deliveryErrors": {}
 }
