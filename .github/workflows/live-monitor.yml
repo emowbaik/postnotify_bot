@@ -180,15 +180,15 @@ jobs:
           mapfile -t run_ids < <(
             gh api --paginate \
               "repos/$REPO/actions/workflows/$WORKFLOW_FILE/runs?per_page=100" \
-              --jq '.workflow_runs[] | select(.status == "completed") | .id'
+              --jq '.workflow_runs[] | select(.status == "completed" and (.conclusion == "success" or .conclusion == "cancelled")) | .id'
           )
 
-          echo "Found ${#run_ids[@]} completed monitor run(s) to delete."
+          echo "Found ${#run_ids[@]} successful/cancelled monitor run(s) to delete."
           for run_id in "${run_ids[@]}"; do
-            echo "Deleting completed monitor run: $run_id"
+            echo "Deleting successful/cancelled monitor run: $run_id"
             gh api --method DELETE "repos/$REPO/actions/runs/$run_id"
           done
-          echo "Cleanup complete. Active and queued runs were preserved."
+          echo "Cleanup complete. Failed/error, unknown, active, and queued runs were preserved for manual deletion."
 
   # ── Keepalive: mencegah GitHub menonaktifkan scheduled workflow ───────────
   # GitHub menonaktifkan scheduled workflow setelah 60 hari tanpa aktivitas.

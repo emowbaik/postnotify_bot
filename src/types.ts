@@ -4,6 +4,30 @@
 
 export type Platform = 'tiktok' | 'youtube';
 
+export interface TikTokDetectorDiagnostic {
+  platform: 'tiktok';
+  target: string;
+  classification: 'live' | 'offline' | 'error';
+  sourceOutcomes: string[];
+  roomIdSuffix?: string;
+  errorCode?: string;
+  observedAt: string;
+}
+
+export type LiveDeliveryStage = 'configuration' | 'preview' | 'discord';
+
+export interface PersistedDeliveryError {
+  platform: Platform;
+  target: string;
+  sessionKey: string;
+  stage: LiveDeliveryStage;
+  errorCode: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  attemptCount: number;
+  alertSentAt?: string;
+}
+
 /** Info about an active TikTok or YouTube broadcast. */
 export interface LiveInfo {
   /** Discriminant for successful active broadcasts. */
@@ -32,6 +56,8 @@ export interface LiveInfo {
   profileUrl: string;
   /** ISO timestamp of when the live started. */
   startedAt: string;
+  /** Bounded detector evidence; currently emitted by TikTok checks only. */
+  detectorDiagnostic?: TikTokDetectorDiagnostic;
 }
 
 /** Returned when a confirmed check shows that a creator is offline. */
@@ -40,6 +66,7 @@ export interface NotLiveInfo {
   isLive: false;
   platform: Platform;
   username: string;
+  detectorDiagnostic?: TikTokDetectorDiagnostic;
 }
 
 /** Returned when a live-status check could not complete reliably. */
@@ -50,6 +77,7 @@ export interface LiveCheckError {
   username: string;
   errorCode: string;
   message: string;
+  detectorDiagnostic?: TikTokDetectorDiagnostic;
 }
 
 export type LiveCheckResult = LiveInfo | NotLiveInfo | LiveCheckError;
@@ -74,4 +102,8 @@ export interface BotState {
   youtubeActiveVideos: Record<string, string>;
   /** Last Discord-notified platform error per target. */
   platformErrors: Record<string, PersistedPlatformError>;
+  /** Latest bounded detector outcome per TikTok target. */
+  detectorDiagnostics: Record<string, TikTokDetectorDiagnostic>;
+  /** Retryable Discord delivery failure per live session. */
+  deliveryErrors: Record<string, PersistedDeliveryError>;
 }

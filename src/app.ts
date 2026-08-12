@@ -24,15 +24,18 @@ import {
   clearYouTubeActiveVideo,
   getPlatformError,
   getYouTubeActiveVideo,
-  hasNotified,
   loadState,
-  markNotified,
   pruneTargetSessions,
   saveState,
+  setDetectorDiagnostic,
   setPlatformError,
   setYouTubeActiveVideo,
 } from './state.js';
-import type { LiveCheckError, LiveInfo } from './types.js';
+import type {
+  LiveCheckError,
+  LiveInfo,
+} from './types.js';
+import { deliverLiveSession } from './liveDelivery.js';
 import { safeLogValue } from './log.js';
 
 const DELAY_BETWEEN_NOTIFICATIONS_MS = 1_500;
@@ -123,6 +126,10 @@ async function run(): Promise<void> {
   let errorCount = 0;
 
   for (const info of results) {
+    if (info.detectorDiagnostic) {
+      setDetectorDiagnostic(state, info.detectorDiagnostic);
+    }
+
     if (info.status === 'error') {
       errorCount++;
       await handleCheckError(
@@ -135,17 +142,16 @@ async function run(): Promise<void> {
       continue;
     }
 
-    await handleRecovery(
-      state,
-      info.platform,
-      info.username,
-      discordBotToken,
-      adminDiscordChannelId!,
-      adminDiscordMention
-    );
-
     if (info.status === 'offline') {
       offlineCount++;
+      await handleRecovery(
+        state,
+        info.platform,
+        info.username,
+        discordBotToken,
+        adminDiscordChannelId!,
+        adminDiscordMention
+      );
       pruneTargetSessions(state, info.platform, info.username);
       if (info.platform === 'youtube') clearYouTubeActiveVideo(state, info.username);
       continue;
@@ -168,35 +174,46 @@ async function run(): Promise<void> {
 
   for (let i = 0; i < liveResults.length; i++) {
     const liveInfo = liveResults[i]!;
-    const sessionKey = buildSessionKey(liveInfo.platform, liveInfo.username, liveInfo.roomId);
+    const outcome = await deliverLiveSession(state, liveInfo, {
+      sendLive: async (info) => {
+        const route = getDiscordRoute(
+          info,
+          tiktokDiscordChannelId,
+          tiktokDiscordMention,
+          youtubeDiscordChannelId,
+          youtubeDiscordMention
+        );
+        await sendLiveNotification(
+          discordBotToken,
+          route.channelId,
+          info,
+          route.mention
+        );
+      },
+      sendRecovery: (info) => handleRecovery(
+        state,
+        info.platform,
+        info.username,
+        discordBotToken,
+        adminDiscordChannelId!,
+        adminDiscordMention
+      ),
+    });
 
-    if (hasNotified(state, sessionKey)) {
+    if (outcome.status === 'already-notified') {
       console.log(`[${liveInfo.platform}:${safeLogValue(liveInfo.username)}] Already notified for session ${safeLogValue(liveInfo.roomId)} — skipping.`);
       continue;
     }
-
-    try {
-      const route = getDiscordRoute(
-        liveInfo,
-        tiktokDiscordChannelId,
-        tiktokDiscordMention,
-        youtubeDiscordChannelId,
-        youtubeDiscordMention
-      );
-
-      await sendLiveNotification(discordBotToken, route.channelId, liveInfo, route.mention);
-      markNotified(state, sessionKey);
-      notificationsSent++;
-
-      // Small delay between notifications to avoid Discord rate-limiting.
-      if (i < liveResults.length - 1) {
-        await delay(DELAY_BETWEEN_NOTIFICATIONS_MS);
-      }
-    } catch (error: unknown) {
+    if (outcome.status === 'failed') {
       console.error(
-        `[${liveInfo.platform}:${safeLogValue(liveInfo.username)}] ❌ Failed to send Discord notification: ${safeLogValue(errorMessage(error))}`
+        `[${liveInfo.platform}:${safeLogValue(liveInfo.username)}] ❌ Failed to send Discord notification: ${safeLogValue(outcome.errorCode)}`
       );
-      // Don't mark as notified — will retry next cycle.
+      continue;
+    }
+
+    notificationsSent++;
+    if (i < liveResults.length - 1) {
+      await delay(DELAY_BETWEEN_NOTIFICATIONS_MS);
     }
   }
 

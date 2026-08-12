@@ -363,12 +363,14 @@ npm audit --omit=dev
 - **YouTube quota:** YouTube checks use the official Data API v3 and are subject to the Google Cloud project's daily quota.
 - **API key security:** Restrict `YOUTUBE_API_KEY` to YouTube Data API v3. Never commit it or print full API request URLs.
 - **GitHub Actions minutes:** Public repositories receive unlimited standard Actions minutes. Private repository quotas depend on the account plan; a continuously sleeping loop consumes billed runner time.
-- **State management:** `state.json` stores notified sessions, active YouTube video IDs, and deduplicated operational errors. Invalid existing JSON stops the run without overwriting it; successful saves use a same-directory atomic rename.
+- **TikTok detection:** A live decision requires active room status (`2`), exact string room ID, and matching owner. Ended status (`4`) confirms offline; missing, malformed, mismatched, or conflicting evidence is an operational error, not guessed offline.
+- **Recovery meaning:** Recovery means TikTok status checks work again. It is an admin-channel health message, not proof of a livestream and not a substitute for TikTok live embed delivery. When target is live, bot sends live embed first.
+- **State management:** `state.json` stores notified sessions, active YouTube video IDs, deduplicated operational errors, bounded latest TikTok detector evidence, and retryable live-delivery errors. It never stores TikTok response payloads, signed media URLs, Discord response bodies, or tokens. Invalid existing JSON stops run without overwriting it; successful saves use same-directory atomic rename.
 - **State synchronization:** Operational state lives on dedicated `postnotify-state`, which accepts only fast-forward history and contains no executable source. Each run loads that branch before monitoring and retries state-only pushes up to three times. It never writes state to or force-pushes `master`.
-- **Discord availability:** Live, error, and recovery requests have a 15-second network deadline so outages cannot stall state processing indefinitely.
+- **Discord availability:** Live, error, and recovery requests have a 15-second network deadline so outages cannot stall state processing indefinitely. Failed live sends stay unnotified and retry next cycle; bounded stage/code evidence clears after success.
 - **Supply chain:** Workflow Actions and Bun use immutable reviewed versions. Dependencies install only through `npm ci` and tracked integrity hashes.
-- **Workflow credentials:** Bot/API secrets exist only in the monitor step. State-branch push and self-dispatch use a short-lived job token; checkout credentials are not persisted.
-- **Actions cleanup:** A separate secret-free job with only `actions: write` permanently deletes completed `live-monitor.yml` runs. It never targets active/queued runs or another workflow's history.
+- **Workflow credentials:** Bot/API secrets exist only in monitor step. State-branch push and self-dispatch use short-lived job token; checkout credentials are not persisted.
+- **Actions cleanup:** A separate secret-free job with only `actions: write` paginates `live-monitor.yml` history and permanently deletes completed `success`/`cancelled` runs only. Failed, timed-out, unknown, active, and queued runs remain until manual deletion.
 - **Concurrency:** `cancel-in-progress: false` queues overlapping triggers so a run cannot be cancelled after sending Discord alerts but before persisting state.
 
 ---
