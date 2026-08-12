@@ -3,7 +3,13 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { loadState, pruneTargetSessions, saveState } from '../src/state.ts';
+import {
+  hasNotified,
+  loadState,
+  normalizeBotState,
+  pruneTargetSessions,
+  saveState,
+} from '../src/state.ts';
 import type { BotState } from '../src/types.ts';
 
 function withTemporaryState(run: (directory: string, stateFile: string) => void): void {
@@ -21,6 +27,8 @@ test('missing state starts with empty backward-compatible defaults', () => {
       activeLiveSessions: [],
       youtubeActiveVideos: {},
       platformErrors: {},
+      detectorDiagnostics: {},
+      deliveryErrors: {},
     });
   });
 });
@@ -52,6 +60,8 @@ test('save atomically replaces state and removes temporary file', () => {
       activeLiveSessions: ['youtube:channel:video'],
       youtubeActiveVideos: { channel: 'video' },
       platformErrors: {},
+      detectorDiagnostics: {},
+      deliveryErrors: {},
     };
 
     saveState(expected, stateFile);
@@ -71,6 +81,8 @@ test('offline TikTok check prunes modern and legacy target sessions only', () =>
     ],
     youtubeActiveVideos: {},
     platformErrors: {},
+    detectorDiagnostics: {},
+    deliveryErrors: {},
   };
 
   pruneTargetSessions(state, 'tiktok', 'creator');
@@ -86,6 +98,8 @@ test('active legacy TikTok key migrates without losing deduplication', () => {
     activeLiveSessions: ['creator:current-room', 'creator:old-room'],
     youtubeActiveVideos: {},
     platformErrors: {},
+    detectorDiagnostics: {},
+    deliveryErrors: {},
   };
 
   pruneTargetSessions(
@@ -96,4 +110,59 @@ test('active legacy TikTok key migrates without losing deduplication', () => {
   );
 
   assert.deepEqual(state.activeLiveSessions, ['tiktok:creator:current-room']);
+  assert.equal(hasNotified(state, 'tiktok:creator:current-room'), true);
+});
+
+test('legacy three-field state gains empty diagnostic maps', () => {
+  assert.deepEqual(normalizeBotState({
+    activeLiveSessions: ['tiktok:creator:room'],
+    youtubeActiveVideos: {},
+    platformErrors: {},
+  }), {
+    activeLiveSessions: ['tiktok:creator:room'],
+    youtubeActiveVideos: {},
+    platformErrors: {},
+    detectorDiagnostics: {},
+    deliveryErrors: {},
+  });
+});
+
+test('bounded detector and delivery evidence survives normalization', () => {
+  const value = normalizeBotState({
+    activeLiveSessions: [],
+    youtubeActiveVideos: {},
+    platformErrors: {},
+    detectorDiagnostics: {
+      kusugashiroo: {
+        platform: 'tiktok',
+        target: 'kusugashiroo',
+        classification: 'live',
+        sourceOutcomes: ['isLive:false', 'room:status_2'],
+        roomIdSuffix: '833412',
+        observedAt: '2026-08-12T00:00:00.000Z',
+      },
+      invalid: {
+        platform: 'tiktok',
+        target: 'invalid',
+        classification: 'live',
+        sourceOutcomes: ['x'.repeat(81)],
+        observedAt: '2026-08-12T00:00:00.000Z',
+      },
+    },
+    deliveryErrors: {
+      'tiktok:kusugashiroo:room': {
+        platform: 'tiktok',
+        target: 'kusugashiroo',
+        sessionKey: 'tiktok:kusugashiroo:room',
+        stage: 'discord',
+        errorCode: 'LIVE_DISCORD_HTTP_403',
+        firstSeenAt: '2026-08-12T00:00:00.000Z',
+        lastSeenAt: '2026-08-12T00:05:00.000Z',
+        attemptCount: 2,
+      },
+    },
+  });
+
+  assert.deepEqual(Object.keys(value.detectorDiagnostics), ['kusugashiroo']);
+  assert.deepEqual(Object.keys(value.deliveryErrors), ['tiktok:kusugashiroo:room']);
 });

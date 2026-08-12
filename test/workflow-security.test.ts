@@ -47,6 +47,39 @@ test('permission and secret boundaries remain isolated', () => {
   assert.doesNotMatch(cleanup, /contents: write/u);
 });
 
+test('cleanup deletes only successful or cancelled completed monitor runs', () => {
+  const cleanup = workflow.slice(
+    workflow.indexOf('  cleanup-completed-runs:'),
+    workflow.indexOf('  workflow-keepalive:')
+  );
+  const selector = 'select(.status == "completed" and (.conclusion == "success" or .conclusion == "cancelled"))';
+
+  assert.ok(cleanup.includes('gh api --paginate'));
+  assert.ok(cleanup.includes('actions/workflows/$WORKFLOW_FILE/runs?per_page=100'));
+  assert.ok(cleanup.includes(selector));
+  assert.doesNotMatch(cleanup, /select\(\.status == "completed"\) \| \.id/u);
+  assert.match(cleanup, /Failed\/error, unknown, active, and queued runs were preserved for manual deletion/u);
+
+  const conclusions = [
+    'success',
+    'cancelled',
+    'failure',
+    'timed_out',
+    'action_required',
+    'startup_failure',
+    'stale',
+    'neutral',
+    'skipped',
+    null,
+    'future_unknown',
+  ];
+  const deletable = conclusions.filter((conclusion) =>
+    conclusion === 'success' || conclusion === 'cancelled'
+  );
+  assert.deepEqual(deletable, ['success', 'cancelled']);
+  assert.equal(['in_progress', 'queued'].some((status) => status === 'completed'), false);
+});
+
 test('external Actions remain pinned to full commit SHAs', () => {
   const references = [...workflow.matchAll(/uses:\s+[^@\s]+@([^\s#]+)/gu)].map((match) => match[1]);
   assert.ok(references.length >= 3);

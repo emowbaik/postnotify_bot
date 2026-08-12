@@ -11,6 +11,7 @@
 
 import type {
   LiveCheckError,
+  LiveDeliveryStage,
   LiveInfo,
   PersistedPlatformError,
 } from '../types.js';
@@ -34,10 +35,19 @@ export async function sendLiveNotification(
   liveInfo: LiveInfo,
   mention?: string
 ): Promise<void> {
-  validateNotificationInput(botToken, channelId, liveInfo);
-  assertMention(mention);
+  try {
+    validateNotificationInput(botToken, channelId, liveInfo);
+    assertMention(mention);
+  } catch (error: unknown) {
+    throw liveDeliveryError('configuration', 'LIVE_DELIVERY_CONFIGURATION_ERROR', error);
+  }
 
-  const previewBuffer = await generateLivePreview(liveInfo);
+  let previewBuffer: Buffer;
+  try {
+    previewBuffer = await generateLivePreview(liveInfo);
+  } catch (error: unknown) {
+    throw liveDeliveryError('preview', 'LIVE_PREVIEW_ERROR', error);
+  }
 
   const payload: DiscordMessagePayload = {
     content: buildContent(liveInfo, mention),
@@ -61,18 +71,27 @@ export async function sendLiveNotification(
     'live-preview.jpg'
   );
 
-  const response = await fetchDiscord(`${DISCORD_API}/channels/${channelId}/messages`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bot ${botToken}`,
-      'User-Agent': 'PostNotifyBot/2.0',
-    },
-    body: formData,
-  });
+  let response: Response;
+  try {
+    response = await fetchDiscord(`${DISCORD_API}/channels/${channelId}/messages`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bot ${botToken}`,
+        'User-Agent': 'PostNotifyBot/2.0',
+      },
+      body: formData,
+    });
+  } catch (error: unknown) {
+    throw liveDeliveryError('discord', 'LIVE_DISCORD_REQUEST_ERROR', error);
+  }
 
   if (!response.ok) {
-    const responseBody = await response.text();
-    throw new Error(`Discord API error ${response.status}: ${responseBody}`);
+    response.body?.cancel().catch(() => undefined);
+    throw liveDeliveryError(
+      'discord',
+      `LIVE_DISCORD_HTTP_${response.status}`,
+      new Error(`Discord API returned HTTP ${response.status}.`)
+    );
   }
 
   console.log(
@@ -118,7 +137,8 @@ export async function sendAdminRecoveryNotification(
     ...(mention?.trim() && { content: mention.trim() }),
     allowed_mentions: buildAllowedMentions(mention),
     embeds: [{
-      title: 'PostNotify monitoring recovered',
+      title: 'PostNotify status check available again',
+      description: `${platformLabel(previousError)} status checks are succeeding again. This is not a livestream notification.`,
       color: 0x22c55e,
       fields: [
         { name: 'Platform', value: platformLabel(previousError), inline: true },
@@ -148,8 +168,8 @@ async function sendJsonMessage(
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    const responseBody = await response.text();
-    throw new Error(`Discord API error ${response.status}: ${responseBody}`);
+    response.body?.cancel().catch(() => undefined);
+    throw new Error(`Discord API returned HTTP ${response.status}.`);
   }
 }
 
@@ -305,6 +325,25 @@ function isHttpUrl(value?: string | null): value is string {
   } catch {
     return false;
   }
+}
+
+export class LiveDeliveryError extends Error {
+  constructor(
+    readonly stage: LiveDeliveryStage,
+    readonly errorCode: string,
+    options?: ErrorOptions
+  ) {
+    super('Live notification delivery failed.', options);
+    this.name = 'LiveDeliveryError';
+  }
+}
+
+function liveDeliveryError(
+  stage: LiveDeliveryStage,
+  errorCode: string,
+  cause: unknown
+): LiveDeliveryError {
+  return new LiveDeliveryError(stage, errorCode, { cause });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

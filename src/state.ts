@@ -12,8 +12,10 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 import type {
   BotState,
+  PersistedDeliveryError,
   PersistedPlatformError,
   Platform,
+  TikTokDetectorDiagnostic,
 } from './types.js';
 
 const STATE_FILE = path.resolve(
@@ -24,6 +26,8 @@ const DEFAULT_STATE: BotState = {
   activeLiveSessions: [],
   youtubeActiveVideos: {},
   platformErrors: {},
+  detectorDiagnostics: {},
+  deliveryErrors: {},
 };
 
 /** Normalize persisted data while preserving compatibility with older state files. */
@@ -36,6 +40,8 @@ export function normalizeBotState(value: unknown): BotState {
       : [],
     youtubeActiveVideos: stringRecord(value.youtubeActiveVideos),
     platformErrors: platformErrorRecord(value.platformErrors),
+    detectorDiagnostics: detectorDiagnosticRecord(value.detectorDiagnostics),
+    deliveryErrors: deliveryErrorRecord(value.deliveryErrors),
   };
 }
 
@@ -187,6 +193,31 @@ export function clearPlatformError(
   delete state.platformErrors[errorKey(platform, target)];
 }
 
+export function setDetectorDiagnostic(
+  state: BotState,
+  diagnostic: TikTokDetectorDiagnostic
+): void {
+  state.detectorDiagnostics[diagnostic.target] = diagnostic;
+}
+
+export function getDeliveryError(
+  state: BotState,
+  sessionKey: string
+): PersistedDeliveryError | undefined {
+  return state.deliveryErrors[sessionKey];
+}
+
+export function setDeliveryError(
+  state: BotState,
+  error: PersistedDeliveryError
+): void {
+  state.deliveryErrors[error.sessionKey] = error;
+}
+
+export function clearDeliveryError(state: BotState, sessionKey: string): void {
+  delete state.deliveryErrors[sessionKey];
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -219,4 +250,67 @@ function platformErrorRecord(value: unknown): Record<string, PersistedPlatformEr
         && typeof error.firstSeenAt === 'string';
     })
   );
+}
+
+function detectorDiagnosticRecord(value: unknown): Record<string, TikTokDetectorDiagnostic> {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).filter((entry): entry is [string, TikTokDetectorDiagnostic] => {
+      const diagnostic = entry[1];
+      return isRecord(diagnostic)
+        && entry[0] === diagnostic.target
+        && diagnostic.platform === 'tiktok'
+        && boundedText(diagnostic.target, 100)
+        && (diagnostic.classification === 'live'
+          || diagnostic.classification === 'offline'
+          || diagnostic.classification === 'error')
+        && isStringArray(diagnostic.sourceOutcomes)
+        && diagnostic.sourceOutcomes.length <= 12
+        && diagnostic.sourceOutcomes.every((item) => boundedText(item, 80))
+        && (diagnostic.roomIdSuffix === undefined
+          || /^\d{1,8}$/u.test(diagnostic.roomIdSuffix as string))
+        && (diagnostic.errorCode === undefined
+          || boundedCode(diagnostic.errorCode))
+        && validTimestamp(diagnostic.observedAt);
+    })
+  );
+}
+
+function deliveryErrorRecord(value: unknown): Record<string, PersistedDeliveryError> {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).filter((entry): entry is [string, PersistedDeliveryError] => {
+      const error = entry[1];
+      return isRecord(error)
+        && entry[0] === error.sessionKey
+        && (error.platform === 'tiktok' || error.platform === 'youtube')
+        && boundedText(error.target, 100)
+        && boundedText(error.sessionKey, 300)
+        && (error.stage === 'configuration' || error.stage === 'preview' || error.stage === 'discord')
+        && boundedCode(error.errorCode)
+        && validTimestamp(error.firstSeenAt)
+        && validTimestamp(error.lastSeenAt)
+        && Number.isSafeInteger(error.attemptCount)
+        && (error.attemptCount as number) > 0
+        && (error.attemptCount as number) <= 1_000_000
+        && (error.alertSentAt === undefined || validTimestamp(error.alertSentAt));
+    })
+  );
+}
+
+function boundedText(value: unknown, maximumLength: number): value is string {
+  return typeof value === 'string'
+    && value.length > 0
+    && value.length <= maximumLength
+    && !/[\u0000-\u001f\u007f]/u.test(value);
+}
+
+function boundedCode(value: unknown): value is string {
+  return typeof value === 'string' && /^[A-Z0-9_]{1,80}$/u.test(value);
+}
+
+function validTimestamp(value: unknown): value is string {
+  return typeof value === 'string'
+    && value.length <= 30
+    && Number.isFinite(Date.parse(value));
 }

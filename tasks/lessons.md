@@ -6,3 +6,4 @@
 - Never use broad multi-replacement for an identifier such as `username` when only interpolation sites need sanitizing. Target complete log statements; compile immediately after each boundary file.
 - Pure validation tests must import dependency-free parser/validator modules, not runtime wrappers that eagerly read `process.env` or import `.js` production modules under Node's TypeScript stripping mode.
 - Permission hardening must preserve approved behavior. If a feature needs elevated scope, move it into a secret-free job with narrow job-level permission; do not silently remove the feature.
+- Keep incident evidence inside the system under diagnosis. Screenshots from another Discord bot are context only unless the user explicitly asks for comparison; never use them to infer PostNotify targets, state, or required configuration changes.
