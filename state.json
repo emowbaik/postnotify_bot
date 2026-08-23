@@ -3,8 +3,7 @@
     "youtube:UCckPYr9b_iVucz8ID1Q67sw:Q1HirWHmyUY",
     "youtube:UC3ZhM0fDxU9bqqlwWRMHwuw:vYDZhkNuVnQ",
     "youtube:UCbbb5_EsXnluFbpfVFUSjZw:kn3wLBGp6XE",
-    "youtube:UC5v2QgY2D5tlu8uws23MG4Q:SBzdOV3x1Fs",
-    "tiktok:mochprayog:7676598123493346049"
+    "youtube:UC5v2QgY2D5tlu8uws23MG4Q:SBzdOV3x1Fs"
   ],
   "youtubeActiveVideos": {
     "UCckPYr9b_iVucz8ID1Q67sw": "Q1HirWHmyUY",
@@ -37,7 +36,7 @@
         "room:status_4"
       ],
       "roomIdSuffix": "32283412",
-      "observedAt": "2026-08-23T06:02:58.600Z"
+      "observedAt": "2026-08-23T06:08:30.085Z"
     },
     "zepphhyyrr_": {
       "platform": "tiktok",
@@ -53,24 +52,35 @@
         "room:status_4"
       ],
       "roomIdSuffix": "10590484",
-      "observedAt": "2026-08-23T06:02:58.601Z"
+      "observedAt": "2026-08-23T06:08:29.567Z"
     },
     "mochprayog": {
       "platform": "tiktok",
       "target": "mochprayog",
-      "classification": "error",
+      "classification": "live",
       "sourceOutcomes": [
-        "isLive:false",
+        "isLive:true",
         "roomId:present",
         "liveDetail:http_400",
-        "roomInfo:api_error",
-        "composite:false",
-        "resolvedRoomId:present"
+        "roomInfo:ok",
+        "composite:true",
+        "resolvedRoomId:present",
+        "room:status_2"
       ],
-      "roomIdSuffix": "93346049",
-      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "observedAt": "2026-08-23T06:02:58.594Z"
+      "roomIdSuffix": "01664785",
+      "observedAt": "2026-08-23T06:08:29.488Z"
     }
   },
-  "deliveryErrors": {}
+  "deliveryErrors": {
+    "tiktok:mochprayog:7677104618001664785": {
+      "platform": "tiktok",
+      "target": "mochprayog",
+      "sessionKey": "tiktok:mochprayog:7677104618001664785",
+      "stage": "discord",
+      "errorCode": "LIVE_DISCORD_REQUEST_ERROR",
+      "firstSeenAt": "2026-08-23T06:08:46.007Z",
+      "lastSeenAt": "2026-08-23T06:08:46.007Z",
+      "attemptCount": 1
+    }
+  }
 }
