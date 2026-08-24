@@ -4,7 +4,7 @@
     "youtube:UC3ZhM0fDxU9bqqlwWRMHwuw:vYDZhkNuVnQ",
     "youtube:UCbbb5_EsXnluFbpfVFUSjZw:kn3wLBGp6XE",
     "youtube:UC5v2QgY2D5tlu8uws23MG4Q:SBzdOV3x1Fs",
-    "tiktok:mochprayog:7677104618001664785"
+    "tiktok:mochprayog:7677592811701881616"
   ],
   "youtubeActiveVideos": {
     "UCckPYr9b_iVucz8ID1Q67sw": "Q1HirWHmyUY",
@@ -12,16 +12,7 @@
     "UCbbb5_EsXnluFbpfVFUSjZw": "kn3wLBGp6XE",
     "UC5v2QgY2D5tlu8uws23MG4Q": "SBzdOV3x1Fs"
   },
-  "platformErrors": {
-    "tiktok:mochprayog": {
-      "fingerprint": "tiktok:mochprayog:TIKTOK_STATUS_INCONCLUSIVE",
-      "platform": "tiktok",
-      "target": "mochprayog",
-      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "message": "TikTok live status could not be confirmed.",
-      "firstSeenAt": "2026-08-23T06:20:29.189Z"
-    }
-  },
+  "platformErrors": {},
   "detectorDiagnostics": {
     "kusugashiroo": {
       "platform": "tiktok",
@@ -37,7 +28,7 @@
         "room:status_4"
       ],
       "roomIdSuffix": "32283412",
-      "observedAt": "2026-08-24T13:40:21.568Z"
+      "observedAt": "2026-08-24T13:46:20.280Z"
     },
     "zepphhyyrr_": {
       "platform": "tiktok",
@@ -53,23 +44,23 @@
         "room:status_4"
       ],
       "roomIdSuffix": "10590484",
-      "observedAt": "2026-08-24T13:40:21.568Z"
+      "observedAt": "2026-08-24T13:46:20.248Z"
     },
     "mochprayog": {
       "platform": "tiktok",
       "target": "mochprayog",
-      "classification": "error",
+      "classification": "live",
       "sourceOutcomes": [
-        "isLive:false",
+        "isLive:true",
         "roomId:present",
         "liveDetail:http_400",
-        "roomInfo:api_error",
-        "composite:false",
-        "resolvedRoomId:present"
+        "roomInfo:ok",
+        "composite:true",
+        "resolvedRoomId:present",
+        "room:status_2"
       ],
-      "roomIdSuffix": "01664785",
-      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "observedAt": "2026-08-24T13:40:22.086Z"
+      "roomIdSuffix": "01881616",
+      "observedAt": "2026-08-24T13:46:20.165Z"
     }
   },
   "deliveryErrors": {}
