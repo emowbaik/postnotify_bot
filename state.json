@@ -3,7 +3,8 @@
     "youtube:UCckPYr9b_iVucz8ID1Q67sw:Q1HirWHmyUY",
     "youtube:UC3ZhM0fDxU9bqqlwWRMHwuw:vYDZhkNuVnQ",
     "youtube:UCbbb5_EsXnluFbpfVFUSjZw:kn3wLBGp6XE",
-    "youtube:UC5v2QgY2D5tlu8uws23MG4Q:SBzdOV3x1Fs"
+    "youtube:UC5v2QgY2D5tlu8uws23MG4Q:SBzdOV3x1Fs",
+    "tiktok:mochprayog:7680196535690300176"
   ],
   "youtubeActiveVideos": {
     "UCckPYr9b_iVucz8ID1Q67sw": "Q1HirWHmyUY",
@@ -11,16 +12,7 @@
     "UCbbb5_EsXnluFbpfVFUSjZw": "kn3wLBGp6XE",
     "UC5v2QgY2D5tlu8uws23MG4Q": "SBzdOV3x1Fs"
   },
-  "platformErrors": {
-    "tiktok:mochprayog": {
-      "fingerprint": "tiktok:mochprayog:TIKTOK_STATUS_INCONCLUSIVE",
-      "platform": "tiktok",
-      "target": "mochprayog",
-      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "message": "TikTok live status could not be confirmed.",
-      "firstSeenAt": "2026-08-30T16:13:47.057Z"
-    }
-  },
+  "platformErrors": {},
   "detectorDiagnostics": {
     "kusugashiroo": {
       "platform": "tiktok",
@@ -36,7 +28,7 @@
         "room:status_4"
       ],
       "roomIdSuffix": "32283412",
-      "observedAt": "2026-08-31T14:07:02.299Z"
+      "observedAt": "2026-08-31T14:12:50.680Z"
     },
     "zepphhyyrr_": {
       "platform": "tiktok",
@@ -52,7 +44,7 @@
         "room:status_4"
       ],
       "roomIdSuffix": "10590484",
-      "observedAt": "2026-08-31T14:07:01.818Z"
+      "observedAt": "2026-08-31T14:12:50.673Z"
     },
     "mochprayog": {
       "platform": "tiktok",
@@ -68,19 +60,8 @@
         "room:status_2"
       ],
       "roomIdSuffix": "90300176",
-      "observedAt": "2026-08-31T14:07:01.845Z"
+      "observedAt": "2026-08-31T14:12:50.785Z"
     }
   },
-  "deliveryErrors": {
-    "tiktok:mochprayog:7680196535690300176": {
-      "platform": "tiktok",
-      "target": "mochprayog",
-      "sessionKey": "tiktok:mochprayog:7680196535690300176",
-      "stage": "discord",
-      "errorCode": "LIVE_DISCORD_REQUEST_ERROR",
-      "firstSeenAt": "2026-08-31T14:07:18.597Z",
-      "lastSeenAt": "2026-08-31T14:07:18.597Z",
-      "attemptCount": 1
-    }
-  }
+  "deliveryErrors": {}
 }
