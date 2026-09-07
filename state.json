@@ -3,7 +3,8 @@
     "youtube:UCckPYr9b_iVucz8ID1Q67sw:Q1HirWHmyUY",
     "youtube:UC3ZhM0fDxU9bqqlwWRMHwuw:vYDZhkNuVnQ",
     "youtube:UCbbb5_EsXnluFbpfVFUSjZw:kn3wLBGp6XE",
-    "youtube:UC5v2QgY2D5tlu8uws23MG4Q:SBzdOV3x1Fs"
+    "youtube:UC5v2QgY2D5tlu8uws23MG4Q:SBzdOV3x1Fs",
+    "tiktok:mochprayog:7682794146990066449"
   ],
   "youtubeActiveVideos": {
     "UCckPYr9b_iVucz8ID1Q67sw": "Q1HirWHmyUY",
@@ -11,16 +12,7 @@
     "UCbbb5_EsXnluFbpfVFUSjZw": "kn3wLBGp6XE",
     "UC5v2QgY2D5tlu8uws23MG4Q": "SBzdOV3x1Fs"
   },
-  "platformErrors": {
-    "tiktok:mochprayog": {
-      "fingerprint": "tiktok:mochprayog:TIKTOK_STATUS_INCONCLUSIVE",
-      "platform": "tiktok",
-      "target": "mochprayog",
-      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "message": "TikTok live status could not be confirmed.",
-      "firstSeenAt": "2026-09-07T14:05:54.540Z"
-    }
-  },
+  "platformErrors": {},
   "detectorDiagnostics": {
     "kusugashiroo": {
       "platform": "tiktok",
@@ -36,7 +28,7 @@
         "room:status_4"
       ],
       "roomIdSuffix": "32283412",
-      "observedAt": "2026-09-07T14:05:54.309Z"
+      "observedAt": "2026-09-07T14:11:27.115Z"
     },
     "zepphhyyrr_": {
       "platform": "tiktok",
@@ -52,23 +44,23 @@
         "room:status_4"
       ],
       "roomIdSuffix": "10590484",
-      "observedAt": "2026-09-07T14:05:54.299Z"
+      "observedAt": "2026-09-07T14:11:27.220Z"
     },
     "mochprayog": {
       "platform": "tiktok",
       "target": "mochprayog",
-      "classification": "error",
+      "classification": "live",
       "sourceOutcomes": [
         "isLive:true",
         "roomId:present",
         "liveDetail:http_400",
-        "roomInfo:api_error",
+        "roomInfo:ok",
         "composite:true",
-        "resolvedRoomId:present"
+        "resolvedRoomId:present",
+        "room:status_2"
       ],
       "roomIdSuffix": "90066449",
-      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "observedAt": "2026-09-07T14:05:54.313Z"
+      "observedAt": "2026-09-07T14:11:27.372Z"
     }
   },
   "deliveryErrors": {}
