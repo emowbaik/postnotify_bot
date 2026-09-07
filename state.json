@@ -11,7 +11,16 @@
     "UCbbb5_EsXnluFbpfVFUSjZw": "kn3wLBGp6XE",
     "UC5v2QgY2D5tlu8uws23MG4Q": "SBzdOV3x1Fs"
   },
-  "platformErrors": {},
+  "platformErrors": {
+    "youtube:UCcRgvaEij_83luO75NY0HGw": {
+      "fingerprint": "youtube:UCcRgvaEij_83luO75NY0HGw:YOUTUBE_NETWORK_ERROR",
+      "platform": "youtube",
+      "target": "UCcRgvaEij_83luO75NY0HGw",
+      "errorCode": "YOUTUBE_NETWORK_ERROR",
+      "message": "YouTube API request failed.",
+      "firstSeenAt": "2026-09-07T13:27:04.827Z"
+    }
+  },
   "detectorDiagnostics": {
     "kusugashiroo": {
       "platform": "tiktok",
@@ -27,7 +36,7 @@
         "room:status_4"
       ],
       "roomIdSuffix": "32283412",
-      "observedAt": "2026-09-07T13:21:07.812Z"
+      "observedAt": "2026-09-07T13:27:04.238Z"
     },
     "zepphhyyrr_": {
       "platform": "tiktok",
@@ -43,7 +52,7 @@
         "room:status_4"
       ],
       "roomIdSuffix": "10590484",
-      "observedAt": "2026-09-07T13:21:07.695Z"
+      "observedAt": "2026-09-07T13:27:04.298Z"
     },
     "mochprayog": {
       "platform": "tiktok",
@@ -59,7 +68,7 @@
         "room:status_4"
       ],
       "roomIdSuffix": "79011345",
-      "observedAt": "2026-09-07T13:21:07.771Z"
+      "observedAt": "2026-09-07T13:27:04.285Z"
     }
   },
   "deliveryErrors": {}
