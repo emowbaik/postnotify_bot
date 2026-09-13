@@ -16,18 +16,18 @@
     "kusugashiroo": {
       "platform": "tiktok",
       "target": "kusugashiroo",
-      "classification": "offline",
+      "classification": "live",
       "sourceOutcomes": [
-        "isLive:false",
+        "isLive:true",
         "roomId:present",
         "liveDetail:http_400",
         "roomInfo:ok",
-        "composite:false",
+        "composite:true",
         "resolvedRoomId:present",
-        "room:status_4"
+        "room:status_2"
       ],
-      "roomIdSuffix": "32283412",
-      "observedAt": "2026-09-13T08:41:23.914Z"
+      "roomIdSuffix": "51132181",
+      "observedAt": "2026-09-13T14:34:54.216Z"
     },
     "zepphhyyrr_": {
       "platform": "tiktok",
@@ -42,8 +42,8 @@
         "resolvedRoomId:present",
         "room:status_4"
       ],
-      "roomIdSuffix": "10590484",
-      "observedAt": "2026-09-13T08:41:23.904Z"
+      "roomIdSuffix": "91798292",
+      "observedAt": "2026-09-13T14:34:54.079Z"
     },
     "mochprayog": {
       "platform": "tiktok",
@@ -58,9 +58,20 @@
         "resolvedRoomId:present",
         "room:status_4"
       ],
-      "roomIdSuffix": "06857745",
-      "observedAt": "2026-09-13T08:41:23.898Z"
+      "roomIdSuffix": "79872001",
+      "observedAt": "2026-09-13T14:34:54.155Z"
     }
   },
-  "deliveryErrors": {}
+  "deliveryErrors": {
+    "tiktok:kusugashiroo:7685024872451132181": {
+      "platform": "tiktok",
+      "target": "kusugashiroo",
+      "sessionKey": "tiktok:kusugashiroo:7685024872451132181",
+      "stage": "discord",
+      "errorCode": "LIVE_DISCORD_REQUEST_ERROR",
+      "firstSeenAt": "2026-09-13T14:35:09.891Z",
+      "lastSeenAt": "2026-09-13T14:35:09.891Z",
+      "attemptCount": 1
+    }
+  }
 }
