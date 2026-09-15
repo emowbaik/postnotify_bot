@@ -11,7 +11,16 @@
     "UCbbb5_EsXnluFbpfVFUSjZw": "kn3wLBGp6XE",
     "UC5v2QgY2D5tlu8uws23MG4Q": "SBzdOV3x1Fs"
   },
-  "platformErrors": {},
+  "platformErrors": {
+    "tiktok:zepphhyyrr_": {
+      "fingerprint": "tiktok:zepphhyyrr_:TIKTOK_STATUS_INCONCLUSIVE",
+      "platform": "tiktok",
+      "target": "zepphhyyrr_",
+      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
+      "message": "TikTok live status could not be confirmed.",
+      "firstSeenAt": "2026-09-15T14:05:02.683Z"
+    }
+  },
   "detectorDiagnostics": {
     "kusugashiroo": {
       "platform": "tiktok",
@@ -27,23 +36,23 @@
         "room:status_4"
       ],
       "roomIdSuffix": "51132181",
-      "observedAt": "2026-09-15T13:59:15.056Z"
+      "observedAt": "2026-09-15T14:05:01.632Z"
     },
     "zepphhyyrr_": {
       "platform": "tiktok",
       "target": "zepphhyyrr_",
-      "classification": "offline",
+      "classification": "error",
       "sourceOutcomes": [
         "isLive:false",
         "roomId:present",
         "liveDetail:http_400",
-        "roomInfo:ok",
+        "roomInfo:api_error",
         "composite:false",
-        "resolvedRoomId:present",
-        "room:status_4"
+        "resolvedRoomId:present"
       ],
       "roomIdSuffix": "91798292",
-      "observedAt": "2026-09-15T13:59:14.983Z"
+      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
+      "observedAt": "2026-09-15T14:05:01.660Z"
     },
     "mochprayog": {
       "platform": "tiktok",
@@ -59,7 +68,7 @@
         "room:status_4"
       ],
       "roomIdSuffix": "35100945",
-      "observedAt": "2026-09-15T13:59:14.984Z"
+      "observedAt": "2026-09-15T14:05:01.494Z"
     }
   },
   "deliveryErrors": {
