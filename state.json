@@ -27,7 +27,7 @@
         "room:status_4"
       ],
       "roomIdSuffix": "10549524",
-      "observedAt": "2026-10-01T12:24:16.307Z"
+      "observedAt": "2026-10-01T12:29:48.336Z"
     },
     "zepphhyyrr_": {
       "platform": "tiktok",
@@ -43,7 +43,7 @@
         "room:status_4"
       ],
       "roomIdSuffix": "63565845",
-      "observedAt": "2026-10-01T12:24:16.355Z"
+      "observedAt": "2026-10-01T12:29:48.366Z"
     },
     "mochprayog": {
       "platform": "tiktok",
@@ -52,14 +52,14 @@
       "sourceOutcomes": [
         "isLive:false",
         "roomId:present",
-        "roomInfo:ok",
         "liveDetail:http_400",
+        "roomInfo:ok",
         "composite:false",
         "resolvedRoomId:present",
         "room:status_4"
       ],
       "roomIdSuffix": "00658964",
-      "observedAt": "2026-10-01T12:24:16.296Z"
+      "observedAt": "2026-10-01T12:29:48.338Z"
     }
   },
   "deliveryErrors": {
