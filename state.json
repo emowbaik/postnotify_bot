@@ -27,7 +27,7 @@
         "room:status_4"
       ],
       "roomIdSuffix": "10549524",
-      "observedAt": "2026-10-02T15:25:50.791Z"
+      "observedAt": "2026-10-02T15:31:31.683Z"
     },
     "zepphhyyrr_": {
       "platform": "tiktok",
@@ -43,23 +43,23 @@
         "room:status_4"
       ],
       "roomIdSuffix": "63565845",
-      "observedAt": "2026-10-02T15:25:50.700Z"
+      "observedAt": "2026-10-02T15:31:32.062Z"
     },
     "mochprayog": {
       "platform": "tiktok",
       "target": "mochprayog",
-      "classification": "offline",
+      "classification": "live",
       "sourceOutcomes": [
-        "isLive:false",
+        "isLive:true",
         "roomId:present",
         "liveDetail:http_400",
         "roomInfo:ok",
-        "composite:false",
+        "composite:true",
         "resolvedRoomId:present",
-        "room:status_4"
+        "room:status_2"
       ],
-      "roomIdSuffix": "73500678",
-      "observedAt": "2026-10-02T15:25:50.677Z"
+      "roomIdSuffix": "39337268",
+      "observedAt": "2026-10-02T15:31:31.623Z"
     }
   },
   "deliveryErrors": {
@@ -71,6 +71,16 @@
       "errorCode": "LIVE_DISCORD_REQUEST_ERROR",
       "firstSeenAt": "2026-09-15T06:53:25.100Z",
       "lastSeenAt": "2026-09-15T06:53:25.100Z",
+      "attemptCount": 1
+    },
+    "tiktok:mochprayog:7692092820639337268": {
+      "platform": "tiktok",
+      "target": "mochprayog",
+      "sessionKey": "tiktok:mochprayog:7692092820639337268",
+      "stage": "discord",
+      "errorCode": "LIVE_DISCORD_REQUEST_ERROR",
+      "firstSeenAt": "2026-10-02T15:31:48.476Z",
+      "lastSeenAt": "2026-10-02T15:31:48.476Z",
       "attemptCount": 1
     }
   }
