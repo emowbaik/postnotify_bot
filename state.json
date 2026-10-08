@@ -11,56 +11,39 @@
     "UCbbb5_EsXnluFbpfVFUSjZw": "kn3wLBGp6XE",
     "UC5v2QgY2D5tlu8uws23MG4Q": "SBzdOV3x1Fs"
   },
-  "platformErrors": {
-    "tiktok:zepphhyyrr_": {
-      "fingerprint": "tiktok:zepphhyyrr_:TIKTOK_STATUS_INCONCLUSIVE",
-      "platform": "tiktok",
-      "target": "zepphhyyrr_",
-      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "message": "TikTok live status could not be confirmed.",
-      "firstSeenAt": "2026-10-08T12:00:37.993Z"
-    },
-    "tiktok:kusugashiroo": {
-      "fingerprint": "tiktok:kusugashiroo:TIKTOK_STATUS_INCONCLUSIVE",
-      "platform": "tiktok",
-      "target": "kusugashiroo",
-      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "message": "TikTok live status could not be confirmed.",
-      "firstSeenAt": "2026-10-08T12:00:38.278Z"
-    }
-  },
+  "platformErrors": {},
   "detectorDiagnostics": {
     "kusugashiroo": {
       "platform": "tiktok",
       "target": "kusugashiroo",
-      "classification": "error",
+      "classification": "offline",
       "sourceOutcomes": [
         "isLive:false",
         "roomId:present",
         "liveDetail:http_400",
-        "roomInfo:timeout",
+        "roomInfo:ok",
         "composite:false",
-        "resolvedRoomId:present"
+        "resolvedRoomId:present",
+        "room:status_4"
       ],
       "roomIdSuffix": "10549524",
-      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "observedAt": "2026-10-08T12:00:37.383Z"
+      "observedAt": "2026-10-08T12:22:06.783Z"
     },
     "zepphhyyrr_": {
       "platform": "tiktok",
       "target": "zepphhyyrr_",
-      "classification": "error",
+      "classification": "offline",
       "sourceOutcomes": [
         "isLive:false",
         "roomId:present",
         "liveDetail:http_400",
-        "roomInfo:api_error",
+        "roomInfo:ok",
         "composite:false",
-        "resolvedRoomId:present"
+        "resolvedRoomId:present",
+        "room:status_4"
       ],
       "roomIdSuffix": "63565845",
-      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "observedAt": "2026-10-08T12:00:28.619Z"
+      "observedAt": "2026-10-08T12:22:06.778Z"
     },
     "mochprayog": {
       "platform": "tiktok",
@@ -76,7 +59,7 @@
         "room:status_4"
       ],
       "roomIdSuffix": "39337268",
-      "observedAt": "2026-10-08T12:00:27.852Z"
+      "observedAt": "2026-10-08T12:22:06.770Z"
     }
   },
   "deliveryErrors": {
