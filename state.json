@@ -11,29 +11,23 @@
     "UCbbb5_EsXnluFbpfVFUSjZw": "kn3wLBGp6XE",
     "UC5v2QgY2D5tlu8uws23MG4Q": "SBzdOV3x1Fs"
   },
-  "platformErrors": {
-    "tiktok:kusugashiroo": {
-      "fingerprint": "tiktok:kusugashiroo:TIKTOK_CONNECTOR_ERROR",
-      "platform": "tiktok",
-      "target": "kusugashiroo",
-      "errorCode": "TIKTOK_CONNECTOR_ERROR",
-      "message": "TikTok live check failed.",
-      "firstSeenAt": "2026-10-25T19:27:32.997Z"
-    }
-  },
+  "platformErrors": {},
   "detectorDiagnostics": {
     "kusugashiroo": {
       "platform": "tiktok",
       "target": "kusugashiroo",
-      "classification": "error",
+      "classification": "offline",
       "sourceOutcomes": [
-        "isLive:error",
-        "roomId:error",
-        "composite:error",
-        "resolvedRoomId:missing"
+        "isLive:false",
+        "roomId:present",
+        "liveDetail:http_400",
+        "roomInfo:ok",
+        "composite:false",
+        "resolvedRoomId:present",
+        "room:status_4"
       ],
-      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "observedAt": "2026-10-25T19:27:32.457Z"
+      "roomIdSuffix": "10549524",
+      "observedAt": "2026-10-25T19:33:20.746Z"
     },
     "zepphhyyrr_": {
       "platform": "tiktok",
@@ -49,23 +43,23 @@
         "room:status_4"
       ],
       "roomIdSuffix": "63565845",
-      "observedAt": "2026-10-25T19:27:29.551Z"
+      "observedAt": "2026-10-25T19:33:20.696Z"
     },
     "mochprayog": {
       "platform": "tiktok",
       "target": "mochprayog",
       "classification": "offline",
       "sourceOutcomes": [
-        "isLive:error",
+        "isLive:false",
         "roomId:present",
         "liveDetail:http_400",
         "roomInfo:ok",
-        "composite:error",
+        "composite:false",
         "resolvedRoomId:present",
         "room:status_4"
       ],
       "roomIdSuffix": "72786945",
-      "observedAt": "2026-10-25T19:27:32.458Z"
+      "observedAt": "2026-10-25T19:33:20.676Z"
     },
     "ayeyeeee1": {
       "platform": "tiktok",
@@ -81,7 +75,7 @@
         "room:status_4"
       ],
       "roomIdSuffix": "68135189",
-      "observedAt": "2026-10-25T19:27:29.847Z"
+      "observedAt": "2026-10-25T19:33:20.718Z"
     }
   },
   "deliveryErrors": {
