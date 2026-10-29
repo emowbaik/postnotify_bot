@@ -3,7 +3,8 @@
     "youtube:UCckPYr9b_iVucz8ID1Q67sw:Q1HirWHmyUY",
     "youtube:UC3ZhM0fDxU9bqqlwWRMHwuw:vYDZhkNuVnQ",
     "youtube:UCbbb5_EsXnluFbpfVFUSjZw:kn3wLBGp6XE",
-    "youtube:UC5v2QgY2D5tlu8uws23MG4Q:SBzdOV3x1Fs"
+    "youtube:UC5v2QgY2D5tlu8uws23MG4Q:SBzdOV3x1Fs",
+    "tiktok:ayeyeeee1:7702214083143076629"
   ],
   "youtubeActiveVideos": {
     "UCckPYr9b_iVucz8ID1Q67sw": "Q1HirWHmyUY",
@@ -20,14 +21,14 @@
       "sourceOutcomes": [
         "isLive:false",
         "roomId:present",
-        "roomInfo:ok",
         "liveDetail:http_400",
+        "roomInfo:ok",
         "composite:false",
         "resolvedRoomId:present",
         "room:status_4"
       ],
       "roomIdSuffix": "10549524",
-      "observedAt": "2026-10-29T22:00:56.052Z"
+      "observedAt": "2026-10-29T22:06:40.654Z"
     },
     "zepphhyyrr_": {
       "platform": "tiktok",
@@ -43,7 +44,7 @@
         "room:status_4"
       ],
       "roomIdSuffix": "63565845",
-      "observedAt": "2026-10-29T22:00:55.815Z"
+      "observedAt": "2026-10-29T22:06:40.664Z"
     },
     "mochprayog": {
       "platform": "tiktok",
@@ -52,30 +53,30 @@
       "sourceOutcomes": [
         "isLive:false",
         "roomId:present",
-        "roomInfo:ok",
         "liveDetail:http_400",
+        "roomInfo:ok",
         "composite:false",
         "resolvedRoomId:present",
         "room:status_4"
       ],
       "roomIdSuffix": "72786945",
-      "observedAt": "2026-10-29T22:00:55.630Z"
+      "observedAt": "2026-10-29T22:06:40.638Z"
     },
     "ayeyeeee1": {
       "platform": "tiktok",
       "target": "ayeyeeee1",
-      "classification": "offline",
+      "classification": "live",
       "sourceOutcomes": [
-        "isLive:false",
+        "isLive:true",
         "roomId:present",
         "liveDetail:http_400",
         "roomInfo:ok",
-        "composite:false",
+        "composite:true",
         "resolvedRoomId:present",
-        "room:status_4"
+        "room:status_2"
       ],
-      "roomIdSuffix": "31556116",
-      "observedAt": "2026-10-29T22:00:55.623Z"
+      "roomIdSuffix": "43076629",
+      "observedAt": "2026-10-29T22:06:40.645Z"
     }
   },
   "deliveryErrors": {
