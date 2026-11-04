@@ -11,92 +11,71 @@
     "UCbbb5_EsXnluFbpfVFUSjZw": "kn3wLBGp6XE",
     "UC5v2QgY2D5tlu8uws23MG4Q": "SBzdOV3x1Fs"
   },
-  "platformErrors": {
-    "tiktok:mochprayog": {
-      "fingerprint": "tiktok:mochprayog:TIKTOK_CONNECTOR_ERROR",
-      "platform": "tiktok",
-      "target": "mochprayog",
-      "errorCode": "TIKTOK_CONNECTOR_ERROR",
-      "message": "TikTok live check failed.",
-      "firstSeenAt": "2026-11-04T19:22:47.459Z"
-    },
-    "tiktok:zepphhyyrr_": {
-      "fingerprint": "tiktok:zepphhyyrr_:TIKTOK_CONNECTOR_ERROR",
-      "platform": "tiktok",
-      "target": "zepphhyyrr_",
-      "errorCode": "TIKTOK_CONNECTOR_ERROR",
-      "message": "TikTok live check failed.",
-      "firstSeenAt": "2026-11-04T19:22:47.915Z"
-    },
-    "tiktok:kusugashiroo": {
-      "fingerprint": "tiktok:kusugashiroo:TIKTOK_CONNECTOR_ERROR",
-      "platform": "tiktok",
-      "target": "kusugashiroo",
-      "errorCode": "TIKTOK_CONNECTOR_ERROR",
-      "message": "TikTok live check failed.",
-      "firstSeenAt": "2026-11-04T19:22:48.270Z"
-    },
-    "tiktok:ayeyeeee1": {
-      "fingerprint": "tiktok:ayeyeeee1:TIKTOK_CONNECTOR_ERROR",
-      "platform": "tiktok",
-      "target": "ayeyeeee1",
-      "errorCode": "TIKTOK_CONNECTOR_ERROR",
-      "message": "TikTok live check failed.",
-      "firstSeenAt": "2026-11-04T19:22:48.620Z"
-    }
-  },
+  "platformErrors": {},
   "detectorDiagnostics": {
     "kusugashiroo": {
       "platform": "tiktok",
       "target": "kusugashiroo",
-      "classification": "error",
+      "classification": "offline",
       "sourceOutcomes": [
-        "isLive:error",
-        "roomId:error",
-        "composite:error",
-        "resolvedRoomId:missing"
+        "isLive:false",
+        "roomId:present",
+        "liveDetail:http_400",
+        "roomInfo:ok",
+        "composite:false",
+        "resolvedRoomId:present",
+        "room:status_4"
       ],
-      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "observedAt": "2026-11-04T19:22:46.388Z"
+      "roomIdSuffix": "53379604",
+      "observedAt": "2026-11-04T19:54:00.850Z"
     },
     "zepphhyyrr_": {
       "platform": "tiktok",
       "target": "zepphhyyrr_",
-      "classification": "error",
+      "classification": "offline",
       "sourceOutcomes": [
-        "isLive:error",
-        "roomId:error",
-        "composite:error",
-        "resolvedRoomId:missing"
+        "isLive:false",
+        "roomId:present",
+        "liveDetail:http_400",
+        "roomInfo:ok",
+        "composite:false",
+        "resolvedRoomId:present",
+        "room:status_4"
       ],
-      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "observedAt": "2026-11-04T19:22:46.388Z"
+      "roomIdSuffix": "63565845",
+      "observedAt": "2026-11-04T19:54:00.832Z"
     },
     "mochprayog": {
       "platform": "tiktok",
       "target": "mochprayog",
-      "classification": "error",
+      "classification": "offline",
       "sourceOutcomes": [
-        "isLive:error",
-        "roomId:error",
-        "composite:error",
-        "resolvedRoomId:missing"
+        "isLive:false",
+        "roomId:present",
+        "liveDetail:http_400",
+        "roomInfo:ok",
+        "composite:false",
+        "resolvedRoomId:present",
+        "room:status_4"
       ],
-      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "observedAt": "2026-11-04T19:22:39.952Z"
+      "roomIdSuffix": "21220870",
+      "observedAt": "2026-11-04T19:54:00.840Z"
     },
     "ayeyeeee1": {
       "platform": "tiktok",
       "target": "ayeyeeee1",
-      "classification": "error",
+      "classification": "offline",
       "sourceOutcomes": [
-        "isLive:error",
-        "roomId:error",
-        "composite:error",
-        "resolvedRoomId:missing"
+        "isLive:false",
+        "roomId:present",
+        "liveDetail:http_400",
+        "roomInfo:ok",
+        "composite:false",
+        "resolvedRoomId:present",
+        "room:status_4"
       ],
-      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "observedAt": "2026-11-04T19:22:46.421Z"
+      "roomIdSuffix": "88514325",
+      "observedAt": "2026-11-04T19:54:00.844Z"
     }
   },
   "deliveryErrors": {
