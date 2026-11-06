@@ -3,7 +3,8 @@
     "youtube:UCckPYr9b_iVucz8ID1Q67sw:Q1HirWHmyUY",
     "youtube:UC3ZhM0fDxU9bqqlwWRMHwuw:vYDZhkNuVnQ",
     "youtube:UCbbb5_EsXnluFbpfVFUSjZw:kn3wLBGp6XE",
-    "youtube:UC5v2QgY2D5tlu8uws23MG4Q:SBzdOV3x1Fs"
+    "youtube:UC5v2QgY2D5tlu8uws23MG4Q:SBzdOV3x1Fs",
+    "tiktok:kusugashiroo:7705108847806155540"
   ],
   "youtubeActiveVideos": {
     "UCckPYr9b_iVucz8ID1Q67sw": "Q1HirWHmyUY",
@@ -25,18 +26,18 @@
     "kusugashiroo": {
       "platform": "tiktok",
       "target": "kusugashiroo",
-      "classification": "offline",
+      "classification": "live",
       "sourceOutcomes": [
-        "isLive:false",
+        "isLive:true",
         "roomId:present",
         "liveDetail:http_400",
         "roomInfo:ok",
-        "composite:false",
+        "composite:true",
         "resolvedRoomId:present",
-        "room:status_4"
+        "room:status_2"
       ],
-      "roomIdSuffix": "53379604",
-      "observedAt": "2026-11-06T17:13:10.193Z"
+      "roomIdSuffix": "06155540",
+      "observedAt": "2026-11-06T17:18:41.515Z"
     },
     "zepphhyyrr_": {
       "platform": "tiktok",
@@ -52,7 +53,7 @@
         "room:status_4"
       ],
       "roomIdSuffix": "63565845",
-      "observedAt": "2026-11-06T17:13:10.101Z"
+      "observedAt": "2026-11-06T17:18:41.537Z"
     },
     "mochprayog": {
       "platform": "tiktok",
@@ -68,7 +69,7 @@
         "room:status_4"
       ],
       "roomIdSuffix": "21220870",
-      "observedAt": "2026-11-06T17:13:10.105Z"
+      "observedAt": "2026-11-06T17:18:41.906Z"
     },
     "ayeyeeee1": {
       "platform": "tiktok",
@@ -81,7 +82,7 @@
         "resolvedRoomId:missing"
       ],
       "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "observedAt": "2026-11-06T17:13:09.938Z"
+      "observedAt": "2026-11-06T17:18:41.204Z"
     }
   },
   "deliveryErrors": {
