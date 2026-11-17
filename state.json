@@ -19,56 +19,71 @@
       "errorCode": "TIKTOK_CONNECTOR_ERROR",
       "message": "TikTok live check failed.",
       "firstSeenAt": "2026-11-06T05:15:35.147Z"
+    },
+    "tiktok:mochprayog": {
+      "fingerprint": "tiktok:mochprayog:TIKTOK_CONNECTOR_ERROR",
+      "platform": "tiktok",
+      "target": "mochprayog",
+      "errorCode": "TIKTOK_CONNECTOR_ERROR",
+      "message": "TikTok live check failed.",
+      "firstSeenAt": "2026-11-17T01:48:16.537Z"
+    },
+    "tiktok:zepphhyyrr_": {
+      "fingerprint": "tiktok:zepphhyyrr_:TIKTOK_CONNECTOR_ERROR",
+      "platform": "tiktok",
+      "target": "zepphhyyrr_",
+      "errorCode": "TIKTOK_CONNECTOR_ERROR",
+      "message": "TikTok live check failed.",
+      "firstSeenAt": "2026-11-17T01:48:16.971Z"
+    },
+    "tiktok:kusugashiroo": {
+      "fingerprint": "tiktok:kusugashiroo:TIKTOK_CONNECTOR_ERROR",
+      "platform": "tiktok",
+      "target": "kusugashiroo",
+      "errorCode": "TIKTOK_CONNECTOR_ERROR",
+      "message": "TikTok live check failed.",
+      "firstSeenAt": "2026-11-17T01:48:17.384Z"
     }
   },
   "detectorDiagnostics": {
     "kusugashiroo": {
       "platform": "tiktok",
       "target": "kusugashiroo",
-      "classification": "offline",
+      "classification": "error",
       "sourceOutcomes": [
-        "isLive:false",
-        "roomId:present",
-        "liveDetail:http_400",
-        "roomInfo:ok",
-        "composite:false",
-        "resolvedRoomId:present",
-        "room:status_4"
+        "isLive:error",
+        "roomId:error",
+        "composite:error",
+        "resolvedRoomId:missing"
       ],
-      "roomIdSuffix": "51091221",
-      "observedAt": "2026-11-17T01:42:12.361Z"
+      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
+      "observedAt": "2026-11-17T01:48:15.443Z"
     },
     "zepphhyyrr_": {
       "platform": "tiktok",
       "target": "zepphhyyrr_",
-      "classification": "offline",
+      "classification": "error",
       "sourceOutcomes": [
-        "isLive:false",
-        "roomId:present",
-        "liveDetail:http_400",
-        "roomInfo:ok",
-        "composite:false",
-        "resolvedRoomId:present",
-        "room:status_4"
+        "isLive:error",
+        "roomId:error",
+        "composite:error",
+        "resolvedRoomId:missing"
       ],
-      "roomIdSuffix": "63565845",
-      "observedAt": "2026-11-17T01:42:12.139Z"
+      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
+      "observedAt": "2026-11-17T01:48:15.447Z"
     },
     "mochprayog": {
       "platform": "tiktok",
       "target": "mochprayog",
-      "classification": "offline",
+      "classification": "error",
       "sourceOutcomes": [
-        "isLive:false",
-        "roomId:present",
-        "liveDetail:http_400",
-        "roomInfo:ok",
-        "composite:false",
-        "resolvedRoomId:present",
-        "room:status_4"
+        "isLive:error",
+        "roomId:error",
+        "composite:error",
+        "resolvedRoomId:missing"
       ],
-      "roomIdSuffix": "21220870",
-      "observedAt": "2026-11-17T01:42:12.330Z"
+      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
+      "observedAt": "2026-11-17T01:48:15.442Z"
     },
     "ayeyeeee1": {
       "platform": "tiktok",
@@ -81,7 +96,7 @@
         "resolvedRoomId:missing"
       ],
       "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "observedAt": "2026-11-17T01:42:12.762Z"
+      "observedAt": "2026-11-17T01:48:15.713Z"
     }
   },
   "deliveryErrors": {
