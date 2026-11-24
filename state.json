@@ -29,6 +29,14 @@
       "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
       "message": "TikTok live status could not be confirmed.",
       "firstSeenAt": "2026-11-21T09:23:20.368Z"
+    },
+    "tiktok:someonedead97": {
+      "fingerprint": "tiktok:someonedead97:TIKTOK_STATUS_INCONCLUSIVE",
+      "platform": "tiktok",
+      "target": "someonedead97",
+      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
+      "message": "TikTok live status could not be confirmed.",
+      "firstSeenAt": "2026-11-24T23:25:20.568Z"
     }
   },
   "detectorDiagnostics": {
@@ -46,7 +54,7 @@
       ],
       "roomIdSuffix": "87958785",
       "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "observedAt": "2026-11-24T23:19:49.612Z"
+      "observedAt": "2026-11-24T23:25:20.206Z"
     },
     "zepphhyyrr_": {
       "platform": "tiktok",
@@ -62,7 +70,7 @@
         "room:status_4"
       ],
       "roomIdSuffix": "63565845",
-      "observedAt": "2026-11-24T23:19:49.610Z"
+      "observedAt": "2026-11-24T23:25:20.177Z"
     },
     "mochprayog": {
       "platform": "tiktok",
@@ -78,7 +86,7 @@
         "room:status_4"
       ],
       "roomIdSuffix": "21220870",
-      "observedAt": "2026-11-24T23:19:50.027Z"
+      "observedAt": "2026-11-24T23:25:20.086Z"
     },
     "ayeyeeee1": {
       "platform": "tiktok",
@@ -91,23 +99,23 @@
         "resolvedRoomId:missing"
       ],
       "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "observedAt": "2026-11-24T23:19:49.455Z"
+      "observedAt": "2026-11-24T23:25:19.946Z"
     },
     "someonedead97": {
       "platform": "tiktok",
       "target": "someonedead97",
-      "classification": "live",
+      "classification": "error",
       "sourceOutcomes": [
         "isLive:true",
         "roomId:present",
         "liveDetail:http_400",
-        "roomInfo:ok",
+        "roomInfo:api_error",
         "composite:true",
-        "resolvedRoomId:present",
-        "room:status_2"
+        "resolvedRoomId:present"
       ],
       "roomIdSuffix": "34719253",
-      "observedAt": "2026-11-24T23:19:49.692Z"
+      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
+      "observedAt": "2026-11-24T23:25:20.136Z"
     }
   },
   "deliveryErrors": {
