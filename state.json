@@ -5,7 +5,7 @@
     "youtube:UCbbb5_EsXnluFbpfVFUSjZw:kn3wLBGp6XE",
     "youtube:UC5v2QgY2D5tlu8uws23MG4Q:SBzdOV3x1Fs",
     "tiktok:kusugashiroo:7712105964907940629",
-    "tiktok:someonedead97:7712252535498722100"
+    "tiktok:someonedead97:7712365442907589428"
   ],
   "youtubeActiveVideos": {
     "UCckPYr9b_iVucz8ID1Q67sw": "Q1HirWHmyUY",
@@ -29,14 +29,6 @@
       "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
       "message": "TikTok live status could not be confirmed.",
       "firstSeenAt": "2026-11-25T15:29:55.586Z"
-    },
-    "tiktok:someonedead97": {
-      "fingerprint": "tiktok:someonedead97:TIKTOK_STATUS_INCONCLUSIVE",
-      "platform": "tiktok",
-      "target": "someonedead97",
-      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "message": "TikTok live status could not be confirmed.",
-      "firstSeenAt": "2026-11-26T00:14:21.958Z"
     }
   },
   "detectorDiagnostics": {
@@ -54,7 +46,7 @@
       ],
       "roomIdSuffix": "07940629",
       "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "observedAt": "2026-11-26T06:32:51.676Z"
+      "observedAt": "2026-11-26T06:39:55.666Z"
     },
     "zepphhyyrr_": {
       "platform": "tiktok",
@@ -70,7 +62,7 @@
         "room:status_4"
       ],
       "roomIdSuffix": "63565845",
-      "observedAt": "2026-11-26T06:32:51.649Z"
+      "observedAt": "2026-11-26T06:39:55.625Z"
     },
     "mochprayog": {
       "platform": "tiktok",
@@ -86,7 +78,7 @@
         "room:status_4"
       ],
       "roomIdSuffix": "21220870",
-      "observedAt": "2026-11-26T06:32:51.641Z"
+      "observedAt": "2026-11-26T06:39:55.599Z"
     },
     "ayeyeeee1": {
       "platform": "tiktok",
@@ -99,23 +91,23 @@
         "resolvedRoomId:missing"
       ],
       "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "observedAt": "2026-11-26T06:32:51.257Z"
+      "observedAt": "2026-11-26T06:39:55.485Z"
     },
     "someonedead97": {
       "platform": "tiktok",
       "target": "someonedead97",
-      "classification": "error",
+      "classification": "live",
       "sourceOutcomes": [
-        "isLive:false",
+        "isLive:true",
         "roomId:present",
         "liveDetail:http_400",
-        "roomInfo:api_error",
-        "composite:false",
-        "resolvedRoomId:present"
+        "roomInfo:ok",
+        "composite:true",
+        "resolvedRoomId:present",
+        "room:status_2"
       ],
-      "roomIdSuffix": "98722100",
-      "errorCode": "TIKTOK_STATUS_INCONCLUSIVE",
-      "observedAt": "2026-11-26T06:32:51.654Z"
+      "roomIdSuffix": "07589428",
+      "observedAt": "2026-11-26T06:39:55.614Z"
     }
   },
   "deliveryErrors": {
